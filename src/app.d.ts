@@ -8,6 +8,16 @@ declare global {
 		// interface PageState {}
 		// interface Platform {}
 	}
+
+	type CaretPosition = {
+		offsetNode: Node;
+		offset: number;
+	};
+
+	interface Document {
+		caretPositionFromPoint?(x: number, y: number): CaretPosition;
+		caretRangeFromPoint?(x: number, y: number): Range | null;
+	}
 }
 
 export {};

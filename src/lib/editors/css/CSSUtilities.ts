@@ -1,7 +1,7 @@
-import Specificity from "@bramus/specificity";
-import { parse as parseLayerNames } from "@csstools/cascade-layer-name-parser";
-import { expand, isShorthand } from "css-shorthand-properties";
-import * as csstree from "css-tree";
+import Specificity from '@bramus/specificity';
+import { parse as parseLayerNames } from '@csstools/cascade-layer-name-parser';
+import { expand, isShorthand } from 'css-shorthand-properties';
+import * as csstree from 'css-tree';
 
 export type SpecificityVal = [i1: number, i2: number, i3: number, i4: number];
 
@@ -9,55 +9,53 @@ export type SpecificityVal = [i1: number, i2: number, i3: number, i4: number];
  * Represents information about a CSS property declaration.
  */
 interface CSSPropertyInfo {
-  name: string; // Physical property name after expansion
-  value: string;
-  important: boolean;
-  source: string; // Source of the property (e.g., "inline", "stylesheet.css")
-  layerName?: string; // Name of the @layer, if any
-  specificity?: SpecificityVal; // Specificity score for sorting
-  active: boolean; // True if applied, false if overshadowed
-  overshadowedBy?: { ruleSelector: string; layerName?: string }; // Details of overshadowing rule
-  inherited: boolean; // True if inherited from an ancestor
-  _ruleOrderIndex?: number; // Global order of appearance for tie-breaking
-  _ruleOrigin?:
-    "user-agent" | "user" | "author" | "inline" | "animation" | "transition"; // Rule origin
-  originalPropertyName?: string; // Original declared property name
+	name: string; // Physical property name after expansion
+	value: string;
+	important: boolean;
+	source: string; // Source of the property (e.g., "inline", "stylesheet.css")
+	layerName?: string; // Name of the @layer, if any
+	specificity?: SpecificityVal; // Specificity score for sorting
+	active: boolean; // True if applied, false if overshadowed
+	overshadowedBy?: { ruleSelector: string; layerName?: string }; // Details of overshadowing rule
+	inherited: boolean; // True if inherited from an ancestor
+	_ruleOrderIndex?: number; // Global order of appearance for tie-breaking
+	_ruleOrigin?: 'user-agent' | 'user' | 'author' | 'inline' | 'animation' | 'transition'; // Rule origin
+	originalPropertyName?: string; // Original declared property name
 }
 
 /**
  * Represents a parsed CSS rule with metadata.
  */
 export interface CSSRuleAnalysis {
-  selector: string;
-  specificity: SpecificityVal;
-  properties: CSSPropertyInfo[]; // Properties in this rule
-  stylesheetUrl: string;
-  layerName?: string; // Name of the @layer, if any
-  origin:
-    "user-agent" | "user" | "author" | "inline" | "animation" | "transition";
-  orderIndex: number; // Global order of appearance for tie-breaking
-  conditionalContexts: ConditionalContext[]; // Stack of conditional contexts
+	selector: string;
+	specificity: SpecificityVal;
+	properties: CSSPropertyInfo[]; // Properties in this rule
+	stylesheetUrl: string;
+	layerName?: string; // Name of the @layer, if any
+	origin: 'user-agent' | 'user' | 'author' | 'inline' | 'animation' | 'transition';
+	orderIndex: number; // Global order of appearance for tie-breaking
+	conditionalContexts: ConditionalContext[]; // Stack of conditional contexts
 }
 
 interface ConditionalContext {
-  type: "media" | "supports" | "container" | "none";
-  condition: string;
-  applies: boolean; // Whether the condition is currently met
+	type: 'media' | 'supports' | 'container' | 'none';
+	condition: string;
+	applies: boolean; // Whether the condition is currently met
 }
 
 /**
  * Represents the resolved style analysis for an element.
  */
 interface ElementStyleAnalysis {
-  element: Element;
-  computedStyles: CSSStyleDeclaration; // Final computed styles from the browser
-  matchingRules: CSSRuleAnalysis[]; // Rules matching the element
-  finalProperties: { [key: string]: CSSPropertyInfo }; // Winning properties after cascade
+	element: Element;
+	computedStyles: CSSStyleDeclaration; // Final computed styles from the browser
+	matchingRules: CSSRuleAnalysis[]; // Rules matching the element
+	finalProperties: { [key: string]: CSSPropertyInfo }; // Winning properties after cascade
 }
 
 interface SheetInfo {
-  sheet: CSSStyleSheet;
-  href: string | null;
+	sheet: CSSStyleSheet;
+	href: string | null;
 }
 
 // Global map for declared order of layers
@@ -75,32 +73,32 @@ const SIMULATION_ID = Math.random().toString(36).slice(2);
 
 // Pseudo-classes whose truthiness we're willing to force. Extend as needed.
 const FORCEABLE_STATE_PSEUDOS = new Set([
-  "hover",
-  "focus",
-  "focus-visible",
-  "focus-within",
-  "active",
-  "target",
-  "target-within",
-  "visited",
-  "checked",
-  "indeterminate",
-  "disabled",
-  "enabled",
-  "valid",
-  "invalid",
-  "required",
-  "optional",
-  "read-only",
-  "read-write",
-  "in-range",
-  "out-of-range",
-  "default",
-  "placeholder-shown",
+	'hover',
+	'focus',
+	'focus-visible',
+	'focus-within',
+	'active',
+	'target',
+	'target-within',
+	'visited',
+	'checked',
+	'indeterminate',
+	'disabled',
+	'enabled',
+	'valid',
+	'invalid',
+	'required',
+	'optional',
+	'read-only',
+	'read-write',
+	'in-range',
+	'out-of-range',
+	'default',
+	'placeholder-shown'
 ]);
 
 function markerClassFor(pseudo: string): string {
-  return `__pseudosim_${pseudo.replace(/-/g, "_")}_${SIMULATION_ID}__`;
+	return `__pseudosim_${pseudo.replace(/-/g, '_')}_${SIMULATION_ID}__`;
 }
 
 /**
@@ -110,224 +108,206 @@ function markerClassFor(pseudo: string): string {
  * @param detachedSheets - An optional array of detached stylesheets to include in the analysis.
  * @returns A promise resolving to an array of CSSRuleAnalysis objects, representing all parsed CSS rules.
  */
-export async function getAllCSSRules(
-  detachedSheets: SheetInfo[] = [],
-): Promise<CSSRuleAnalysis[]> {
-  const allRules: CSSRuleAnalysis[] = [];
-  processedSheets = new Set<string>();
+export async function getAllCSSRules(detachedSheets: SheetInfo[] = []): Promise<CSSRuleAnalysis[]> {
+	const allRules: CSSRuleAnalysis[] = [];
+	processedSheets = new Set<string>();
 
-  /**
-   * Recursively processes a stylesheet or grouping rule, extracting rules and metadata.
-   */
-  async function processCSSRules(
-    sheetOrRule: CSSStyleSheet | CSSGroupingRule,
-    currentLayerName?: string,
-    conditionalStack: ConditionalContext[] = [],
-    p: { href: string | null } = { href: null },
-  ): Promise<void> {
-    // Generate a unique identifier for the current sheet/rule to prevent reprocessing
-    const identifier =
-      sheetOrRule instanceof CSSStyleSheet && sheetOrRule.href
-        ? sheetOrRule.href
-        : sheetOrRule instanceof CSSStyleSheet && sheetOrRule.ownerNode
-          ? `inline-style-${Math.abs(
-              TSH((sheetOrRule.ownerNode as HTMLElement).outerHTML),
-            )}` // Unique for inline <style> tags
-          : `rule-group-${sheetOrRule.constructor.name}-${crypto.randomUUID()}`; // Fallback for unnamed grouping rules
+	/**
+	 * Recursively processes a stylesheet or grouping rule, extracting rules and metadata.
+	 */
+	async function processCSSRules(
+		sheetOrRule: CSSStyleSheet | CSSGroupingRule,
+		currentLayerName?: string,
+		conditionalStack: ConditionalContext[] = [],
+		p: { href: string | null } = { href: null }
+	): Promise<void> {
+		// Generate a unique identifier for the current sheet/rule to prevent reprocessing
+		const identifier =
+			sheetOrRule instanceof CSSStyleSheet && sheetOrRule.href
+				? sheetOrRule.href
+				: sheetOrRule instanceof CSSStyleSheet && sheetOrRule.ownerNode
+					? `inline-style-${Math.abs(TSH((sheetOrRule.ownerNode as HTMLElement).outerHTML))}` // Unique for inline <style> tags
+					: `rule-group-${sheetOrRule.constructor.name}-${crypto.randomUUID()}`; // Fallback for unnamed grouping rules
 
-    if (processedSheets.has(identifier)) {
-      return; // Already processed, prevent infinite loop
-    }
-    processedSheets.add(identifier);
+		if (processedSheets.has(identifier)) {
+			return; // Already processed, prevent infinite loop
+		}
+		processedSheets.add(identifier);
 
-    let rules: CSSRuleList;
-    try {
-      // Access cssRules, which might throw a security error for cross-origin stylesheets
-      if (
-        sheetOrRule instanceof CSSStyleSheet ||
-        sheetOrRule instanceof CSSMediaRule ||
-        sheetOrRule instanceof CSSLayerBlockRule ||
-        sheetOrRule instanceof CSSSupportsRule ||
-        sheetOrRule instanceof CSSContainerRule
-      ) {
-        rules = sheetOrRule.cssRules;
-      } else {
-        console.error("Unsupported rule type", sheetOrRule);
-        return;
-      }
-    } catch (e) {
-      console.warn(`Could not access CSS rules for: ${identifier}. Reason:`, e);
-      return; // Skip this sheet/rule if access is denied
-    }
+		let rules: CSSRuleList;
+		try {
+			// Access cssRules, which might throw a security error for cross-origin stylesheets
+			if (
+				sheetOrRule instanceof CSSStyleSheet ||
+				sheetOrRule instanceof CSSMediaRule ||
+				sheetOrRule instanceof CSSLayerBlockRule ||
+				sheetOrRule instanceof CSSSupportsRule ||
+				sheetOrRule instanceof CSSContainerRule
+			) {
+				rules = sheetOrRule.cssRules;
+			} else {
+				console.error('Unsupported rule type', sheetOrRule);
+				return;
+			}
+		} catch (e) {
+			console.warn(`Could not access CSS rules for: ${identifier}. Reason:`, e);
+			return; // Skip this sheet/rule if access is denied
+		}
 
-    // Iterate through each CSSRule within the current sheet or grouping rule
-    for (let i = 0; i < rules.length; i++) {
-      const cssRule = rules[i];
+		// Iterate through each CSSRule within the current sheet or grouping rule
+		for (let i = 0; i < rules.length; i++) {
+			const cssRule = rules[i];
 
-      // 3.1. Handle `CSSStyleRule` (e.g., `p { color: red; }`):
-      if (cssRule instanceof CSSStyleRule) {
-        const selector = cssRule.selectorText;
-        const specificityScore = calculateSpecificity(selector); // Use @bramus/specificity
-        const properties: CSSPropertyInfo[] = []; // This will now store original declared properties
+			// 3.1. Handle `CSSStyleRule` (e.g., `p { color: red; }`):
+			if (cssRule instanceof CSSStyleRule) {
+				const selector = cssRule.selectorText;
+				const specificityScore = calculateSpecificity(selector); // Use @bramus/specificity
+				const properties: CSSPropertyInfo[] = []; // This will now store original declared properties
 
-        // Extract the declaration block from cssText (e.g., "{ border-radius: 8px; ... }")
-        const declarationText = cssRule.cssText.slice(
-          cssRule.selectorText.length,
-        );
-        const declarationBlockTextMatch = declarationText.match(/{([^]*)}/);
+				// Extract the declaration block from cssText (e.g., "{ border-radius: 8px; ... }")
+				const declarationText = cssRule.cssText.slice(cssRule.selectorText.length);
+				const declarationBlockTextMatch = declarationText.match(/{([^]*)}/);
 
-        if (declarationBlockTextMatch && declarationBlockTextMatch[1]) {
-          const declarationBlockText = declarationBlockTextMatch[1]; // Get content inside curly braces
+				if (declarationBlockTextMatch && declarationBlockTextMatch[1]) {
+					const declarationBlockText = declarationBlockTextMatch[1]; // Get content inside curly braces
 
-          try {
-            // Use css-tree to parse the declaration list
-            // The context 'declarationList' is crucial here for parsing just properties and values
-            const ast = csstree.parse(declarationBlockText, {
-              context: "declarationList",
-            });
+					try {
+						// Use css-tree to parse the declaration list
+						// The context 'declarationList' is crucial here for parsing just properties and values
+						const ast = csstree.parse(declarationBlockText, {
+							context: 'declarationList'
+						});
 
-            // Walk the AST to find individual declarations
-            csstree.walk(ast, {
-              visit: "Declaration", // We are interested in 'Declaration' nodes
-              enter: (node: csstree.Declaration) => {
-                const originalName = node.property; // Property name as declared
-                const value = csstree.generate(node.value); // Convert AST value to string
-                const important = node.important === true; // Check if important flag is set
+						// Walk the AST to find individual declarations
+						csstree.walk(ast, {
+							visit: 'Declaration', // We are interested in 'Declaration' nodes
+							enter: (node: csstree.Declaration) => {
+								const originalName = node.property; // Property name as declared
+								const value = csstree.generate(node.value); // Convert AST value to string
+								const important = node.important === true; // Check if important flag is set
 
-                properties.push({
-                  name: originalName, // Store the original declared property name
-                  value,
-                  important,
-                  active: false,
-                  inherited: false,
-                  source: cssRule.parentStyleSheet?.href || "inline",
-                  layerName: currentLayerName,
-                  specificity: specificityScore,
-                  originalPropertyName: originalName, // Initially same as name
-                });
-              },
-            });
-          } catch (e) {
-            console.warn(
-              `Error parsing CSSRule.cssText for selector "${selector}":`,
-              e,
-            );
-            // If parsing fails for a specific rule, we'll continue, but its properties won't be captured.
-          }
-        }
+								properties.push({
+									name: originalName, // Store the original declared property name
+									value,
+									important,
+									active: false,
+									inherited: false,
+									source: cssRule.parentStyleSheet?.href || 'inline',
+									layerName: currentLayerName,
+									specificity: specificityScore,
+									originalPropertyName: originalName // Initially same as name
+								});
+							}
+						});
+					} catch (e) {
+						console.warn(`Error parsing CSSRule.cssText for selector "${selector}":`, e);
+						// If parsing fails for a specific rule, we'll continue, but its properties won't be captured.
+					}
+				}
 
-        allRules.push({
-          selector,
-          specificity: specificityScore,
-          properties, // This now contains original declared properties
-          stylesheetUrl: cssRule.parentStyleSheet?.href || "inline",
-          layerName: currentLayerName,
-          origin: getOriginFromSheet(cssRule.parentStyleSheet, p.href),
-          orderIndex: allRules.length, // Assign a global order index for tie-breaking
-          conditionalContexts: [...conditionalStack], // Copy the current stack
-        });
-      }
-      // 3.2. Handle `CSSImportRule` (e.g., `@import "another.css";`):
-      else if (cssRule instanceof CSSImportRule) {
-        // If the imported stylesheet is accessible (same origin), recursively process it
-        if (cssRule.styleSheet) {
-          await processCSSRules(
-            cssRule.styleSheet,
-            currentLayerName,
-            conditionalStack,
-            p,
-          );
-        }
-      }
-      // 3.3. Handle `CSSLayerBlockRule` (e.g., `@layer components { ... }`):
-      else if (cssRule instanceof CSSLayerBlockRule) {
-        // For anonymous (unnamed) layers, we still need to come up with a unique identifier
-        // Unnamed layers have an empty string as the .name
-        const layerName = cssRule.name || `anonymous-${crypto.randomUUID()}`;
-        // Record the layer's declaration order if it's new.
-        if (!globalLayerOrderMap.has(layerName)) {
-          globalLayerOrderMap.set(layerName, layerOrderCounter++);
-        }
-        // Recursively process rules inside this named layer block, passing its name
-        await processCSSRules(cssRule, layerName, conditionalStack, p);
-      }
-      // 3.4. Handle `CSSLayerStatementRule` (e.g., `@layer base, components;`):
-      else if (cssRule instanceof CSSLayerStatementRule) {
-        // Use @csstools/cascade-layer-name-parser to extract all layer names from the statement.
-        const layerNames = parseLayerNames(cssRule.nameList.join(", "));
-        layerNames.forEach((layer) => {
-          const name = layer.name(); // Get the actual string name from the parsed object
-          // Record the declaration order for each layer listed in the statement.
-          if (!globalLayerOrderMap.has(name)) {
-            globalLayerOrderMap.set(name, layerOrderCounter++);
-          }
-        });
-      }
-      // 3.5. Handle `CSSMediaRule` (e.g., `@media screen { ... }`):
-      else if (cssRule instanceof CSSMediaRule) {
-        // Add media query context to the stack
-        const mediaContext: ConditionalContext = {
-          type: "media",
-          condition: cssRule.conditionText || cssRule.media.mediaText,
-          applies: evaluateMediaQuery(
-            cssRule.conditionText || cssRule.media.mediaText,
-          ),
-        };
+				allRules.push({
+					selector,
+					specificity: specificityScore,
+					properties, // This now contains original declared properties
+					stylesheetUrl: cssRule.parentStyleSheet?.href || 'inline',
+					layerName: currentLayerName,
+					origin: getOriginFromSheet(cssRule.parentStyleSheet, p.href),
+					orderIndex: allRules.length, // Assign a global order index for tie-breaking
+					conditionalContexts: [...conditionalStack] // Copy the current stack
+				});
+			}
+			// 3.2. Handle `CSSImportRule` (e.g., `@import "another.css";`):
+			else if (cssRule instanceof CSSImportRule) {
+				// If the imported stylesheet is accessible (same origin), recursively process it
+				if (cssRule.styleSheet) {
+					await processCSSRules(cssRule.styleSheet, currentLayerName, conditionalStack, p);
+				}
+			}
+			// 3.3. Handle `CSSLayerBlockRule` (e.g., `@layer components { ... }`):
+			else if (cssRule instanceof CSSLayerBlockRule) {
+				// For anonymous (unnamed) layers, we still need to come up with a unique identifier
+				// Unnamed layers have an empty string as the .name
+				const layerName = cssRule.name || `anonymous-${crypto.randomUUID()}`;
+				// Record the layer's declaration order if it's new.
+				if (!globalLayerOrderMap.has(layerName)) {
+					globalLayerOrderMap.set(layerName, layerOrderCounter++);
+				}
+				// Recursively process rules inside this named layer block, passing its name
+				await processCSSRules(cssRule, layerName, conditionalStack, p);
+			}
+			// 3.4. Handle `CSSLayerStatementRule` (e.g., `@layer base, components;`):
+			else if (cssRule instanceof CSSLayerStatementRule) {
+				// Use @csstools/cascade-layer-name-parser to extract all layer names from the statement.
+				const layerNames = parseLayerNames(cssRule.nameList.join(', '));
+				layerNames.forEach((layer) => {
+					const name = layer.name(); // Get the actual string name from the parsed object
+					// Record the declaration order for each layer listed in the statement.
+					if (!globalLayerOrderMap.has(name)) {
+						globalLayerOrderMap.set(name, layerOrderCounter++);
+					}
+				});
+			}
+			// 3.5. Handle `CSSMediaRule` (e.g., `@media screen { ... }`):
+			else if (cssRule instanceof CSSMediaRule) {
+				// Add media query context to the stack
+				const mediaContext: ConditionalContext = {
+					type: 'media',
+					condition: cssRule.conditionText || cssRule.media.mediaText,
+					applies: evaluateMediaQuery(cssRule.conditionText || cssRule.media.mediaText)
+				};
 
-        // Recursively process rules within the media block, passing the current layer name
-        await processCSSRules(
-          cssRule,
-          currentLayerName,
-          [...conditionalStack, mediaContext], // Add to stack
-          p,
-        );
-      }
-      // 3.6. Handle other `CSSRule` types if necessary (e.g., CSSSupportsRule, CSSKeyframesRule)
-      // For this analysis, we'll primarily focus on style rules and layering.
-      else if (cssRule instanceof CSSSupportsRule) {
-        // Add supports query context to the stack
-        const supportsContext: ConditionalContext = {
-          type: "supports",
-          condition: cssRule.conditionText,
-          applies: evaluateSupportsQuery(cssRule.conditionText),
-        };
+				// Recursively process rules within the media block, passing the current layer name
+				await processCSSRules(
+					cssRule,
+					currentLayerName,
+					[...conditionalStack, mediaContext], // Add to stack
+					p
+				);
+			}
+			// 3.6. Handle other `CSSRule` types if necessary (e.g., CSSSupportsRule, CSSKeyframesRule)
+			// For this analysis, we'll primarily focus on style rules and layering.
+			else if (cssRule instanceof CSSSupportsRule) {
+				// Add supports query context to the stack
+				const supportsContext: ConditionalContext = {
+					type: 'supports',
+					condition: cssRule.conditionText,
+					applies: evaluateSupportsQuery(cssRule.conditionText)
+				};
 
-        await processCSSRules(
-          cssRule,
-          currentLayerName,
-          [...conditionalStack, supportsContext], // Add to stack
-          p,
-        );
-      } else if (cssRule instanceof CSSContainerRule) {
-        // Add container query context to the stack
-        const containerContext: ConditionalContext = {
-          type: "container",
-          condition: cssRule.containerQuery,
-          applies: false, // We don't have the element context evaluate this
-        };
+				await processCSSRules(
+					cssRule,
+					currentLayerName,
+					[...conditionalStack, supportsContext], // Add to stack
+					p
+				);
+			} else if (cssRule instanceof CSSContainerRule) {
+				// Add container query context to the stack
+				const containerContext: ConditionalContext = {
+					type: 'container',
+					condition: cssRule.containerQuery,
+					applies: false // We don't have the element context evaluate this
+				};
 
-        await processCSSRules(
-          cssRule,
-          currentLayerName,
-          [...conditionalStack, containerContext], // Add to stack
-          p,
-        );
-      }
-    }
-  }
+				await processCSSRules(
+					cssRule,
+					currentLayerName,
+					[...conditionalStack, containerContext], // Add to stack
+					p
+				);
+			}
+		}
+	}
 
-  const documentSheets: SheetInfo[] = Array.from(document.styleSheets).map(
-    (sheet) => {
-      return { sheet, href: sheet.href };
-    },
-  );
+	const documentSheets: SheetInfo[] = Array.from(document.styleSheets).map((sheet) => {
+		return { sheet, href: sheet.href };
+	});
 
-  // Start processing from all document stylesheets
-  for (const sheet of [...documentSheets, ...detachedSheets]) {
-    await processCSSRules(sheet.sheet, undefined, [], { href: sheet.href });
-  }
+	// Start processing from all document stylesheets
+	for (const sheet of [...documentSheets, ...detachedSheets]) {
+		await processCSSRules(sheet.sheet, undefined, [], { href: sheet.href });
+	}
 
-  return allRules;
+	return allRules;
 }
 
 /**
@@ -337,71 +317,67 @@ export async function getAllCSSRules(
  * @returns A CSSRuleAnalysis object representing the inline styles, or null if no inline styles exist.
  */
 function getInlineStylesForElement(
-  element: Element,
-  inlineStyleAttribute: string = "style",
+	element: Element,
+	inlineStyleAttribute: string = 'style'
 ): CSSRuleAnalysis | null {
-  const htmlElement = element as HTMLElement;
+	const htmlElement = element as HTMLElement;
 
-  // Check if the element has a style attribute
-  if (!htmlElement.style || htmlElement.style.length === 0) {
-    return null;
-  }
+	// Check if the element has a style attribute
+	if (!htmlElement.style || htmlElement.style.length === 0) {
+		return null;
+	}
 
-  const properties: CSSPropertyInfo[] = [];
-  const declarationBlockText = element.getAttribute(inlineStyleAttribute) ?? "";
+	const properties: CSSPropertyInfo[] = [];
+	const declarationBlockText = element.getAttribute(inlineStyleAttribute) ?? '';
 
-  // NOTE: We don't use element.style for actually reading from it what properties were set
-  //        (instead we use the literal text found from getAttribute) because .style does some
-  //        processing to the styles, like converting #000 to rgb(0, 0, 0) or splitting shorthands
-  //        into longhands.
-  try {
-    // Use css-tree to parse the declaration list
-    // The context 'declarationList' is crucial here for parsing just properties and values
-    const ast = csstree.parse(declarationBlockText, {
-      context: "declarationList",
-    });
+	// NOTE: We don't use element.style for actually reading from it what properties were set
+	//        (instead we use the literal text found from getAttribute) because .style does some
+	//        processing to the styles, like converting #000 to rgb(0, 0, 0) or splitting shorthands
+	//        into longhands.
+	try {
+		// Use css-tree to parse the declaration list
+		// The context 'declarationList' is crucial here for parsing just properties and values
+		const ast = csstree.parse(declarationBlockText, {
+			context: 'declarationList'
+		});
 
-    // Walk the AST to find individual declarations
-    csstree.walk(ast, {
-      visit: "Declaration", // We are interested in 'Declaration' nodes
-      enter: (node: csstree.Declaration) => {
-        const originalName = node.property; // Property name as declared
-        let value = csstree.generate(node.value); // Convert AST value to string
-        const important = node.important === true; // Check if important flag is set
-        // The !important isn't considered part of the property value, but part of the property as a whole, so using css.generate() on node.value
-        //  excludes the "!important" as the end of the value (note it *is* included when calling css.generate() on `node` itself).
-        if (important) value += "!important";
+		// Walk the AST to find individual declarations
+		csstree.walk(ast, {
+			visit: 'Declaration', // We are interested in 'Declaration' nodes
+			enter: (node: csstree.Declaration) => {
+				const originalName = node.property; // Property name as declared
+				let value = csstree.generate(node.value); // Convert AST value to string
+				const important = node.important === true; // Check if important flag is set
+				// The !important isn't considered part of the property value, but part of the property as a whole, so using css.generate() on node.value
+				//  excludes the "!important" as the end of the value (note it *is* included when calling css.generate() on `node` itself).
+				if (important) value += '!important';
 
-        properties.push({
-          name: originalName, // Store the original declared property name
-          value,
-          important,
-          active: false,
-          inherited: false,
-          source: "inline",
-          specificity: [1, 0, 0, 0],
-          originalPropertyName: originalName, // Initially same as name
-        });
-      },
-    });
-  } catch (e) {
-    console.warn(
-      `Error parsing CSSRule.cssText for inline styles of element`,
-      element,
-      e,
-    );
-  }
+				properties.push({
+					name: originalName, // Store the original declared property name
+					value,
+					important,
+					active: false,
+					inherited: false,
+					source: 'inline',
+					specificity: [1, 0, 0, 0],
+					originalPropertyName: originalName // Initially same as name
+				});
+			}
+		});
+	} catch (e) {
+		console.warn(`Error parsing CSSRule.cssText for inline styles of element`, element, e);
+	}
 
-  // Create a synthetic rule for inline styles
-  return {
-    conditionalContexts: [],
-    selector: "[inline]", // Synthetic selector for debugging/identification
-    specificity: [1, 0, 0, 0], // Inline styles have highest specificity
-    properties: properties,
-    stylesheetUrl: "inline",
-    origin: "inline",
-    orderIndex: Infinity, // Inline styles appear "last" in document order
-  };
+	// Create a synthetic rule for inline styles
+	return {
+		conditionalContexts: [],
+		selector: '[inline]', // Synthetic selector for debugging/identification
+		specificity: [1, 0, 0, 0], // Inline styles have highest specificity
+		properties: properties,
+		stylesheetUrl: 'inline',
+		origin: 'inline',
+		orderIndex: Infinity // Inline styles appear "last" in document order
+	};
 }
 
 /**
@@ -411,18 +387,18 @@ function getInlineStylesForElement(
  * @returns A SpecificityVal tuple representing the specificity score.
  */
 function calculateSpecificity(selector: string): SpecificityVal {
-  if (!selector) {
-    return [0, 0, 0, 0];
-  }
-  // @bramus/specificity returns an array of Specificity instances, one for each selector in a list.
-  // We expect a single selector here, so we take the first element.
-  const specificities = Specificity.calculate(selector);
-  if (specificities.length === 0) {
-    // Should not happen for valid selectors but as a safeguard
-    return [0, 0, 0, 0];
-  }
-  const s = specificities[0];
-  return [0, s.a, s.b, s.c];
+	if (!selector) {
+		return [0, 0, 0, 0];
+	}
+	// @bramus/specificity returns an array of Specificity instances, one for each selector in a list.
+	// We expect a single selector here, so we take the first element.
+	const specificities = Specificity.calculate(selector);
+	if (specificities.length === 0) {
+		// Should not happen for valid selectors but as a safeguard
+		return [0, 0, 0, 0];
+	}
+	const s = specificities[0];
+	return [0, s.a, s.b, s.c];
 }
 
 /**
@@ -432,21 +408,18 @@ function calculateSpecificity(selector: string): SpecificityVal {
  * @param spec2 - The second specificity value to compare.
  * @returns `true` if `spec1` is greater, `false` if `spec2` is greater, or `null` if they are equal.
  */
-export function specificityGreater(
-  spec1: SpecificityVal,
-  spec2: SpecificityVal,
-) {
-  return spec1.reduce(
-    (p, c, i) => {
-      if (p === null) {
-        if (c > spec2[i]) return true;
-        else if (c < spec2[i]) return false;
-        // The specificities are equal
-        return null;
-      } else return p;
-    },
-    null as null | boolean,
-  );
+export function specificityGreater(spec1: SpecificityVal, spec2: SpecificityVal) {
+	return spec1.reduce(
+		(p, c, i) => {
+			if (p === null) {
+				if (c > spec2[i]) return true;
+				else if (c < spec2[i]) return false;
+				// The specificities are equal
+				return null;
+			} else return p;
+		},
+		null as null | boolean
+	);
 }
 
 /**
@@ -457,30 +430,30 @@ export function specificityGreater(
  * @returns The origin type as a string.
  */
 function getOriginFromSheet(
-  sheet: CSSStyleSheet | null,
-  givenHref: string | null,
-): "user-agent" | "user" | "author" | "inline" | "animation" | "transition" {
-  const href = givenHref ?? sheet?.href ?? null;
+	sheet: CSSStyleSheet | null,
+	givenHref: string | null
+): 'user-agent' | 'user' | 'author' | 'inline' | 'animation' | 'transition' {
+	const href = givenHref ?? sheet?.href ?? null;
 
-  // For direct inline style attributes (element.style), this function is not called.
-  // For <style> tags, sheet.href is null, so it falls to 'author' by default.
-  if (!sheet) {
-    // This case is technically not hit for CSSRuleAnalysis created from CSSOM,
-    // as CSSRuleAnalysis is for rules found in sheets/style tags.
-    return "inline"; // Represents inline <style> tags, though technically 'author' origin
-  }
+	// For direct inline style attributes (element.style), this function is not called.
+	// For <style> tags, sheet.href is null, so it falls to 'author' by default.
+	if (!sheet) {
+		// This case is technically not hit for CSSRuleAnalysis created from CSSOM,
+		// as CSSRuleAnalysis is for rules found in sheets/style tags.
+		return 'inline'; // Represents inline <style> tags, though technically 'author' origin
+	}
 
-  // Heuristics for user-agent stylesheets (often have specific prefixes or no href)
-  if (href) {
-    if (
-      href.startsWith("chrome-extension://") ||
-      href.startsWith("resource://") ||
-      href.startsWith("about:")
-    ) {
-      return "user-agent";
-    }
-  }
-  return "author";
+	// Heuristics for user-agent stylesheets (often have specific prefixes or no href)
+	if (href) {
+		if (
+			href.startsWith('chrome-extension://') ||
+			href.startsWith('resource://') ||
+			href.startsWith('about:')
+		) {
+			return 'user-agent';
+		}
+	}
+	return 'author';
 }
 
 /**
@@ -490,12 +463,12 @@ function getOriginFromSheet(
  * @returns `true` if the media query matches, `false` otherwise.
  */
 function evaluateMediaQuery(mediaQuery: string): boolean {
-  try {
-    return window.matchMedia(mediaQuery).matches;
-  } catch (e) {
-    console.warn(`Invalid media query: ${mediaQuery}`, e);
-    return false; // Conservative approach - don't apply if we can't evaluate
-  }
+	try {
+		return window.matchMedia(mediaQuery).matches;
+	} catch (e) {
+		console.warn(`Invalid media query: ${mediaQuery}`, e);
+		return false; // Conservative approach - don't apply if we can't evaluate
+	}
 }
 
 /**
@@ -505,14 +478,14 @@ function evaluateMediaQuery(mediaQuery: string): boolean {
  * @returns `true` if the condition is supported, `false` otherwise.
  */
 function evaluateSupportsQuery(supportsQuery: string): boolean {
-  try {
-    // Remove the @supports prefix if present and clean up the query
-    const cleanQuery = supportsQuery.replace(/^@supports\s+/i, "").trim();
-    return CSS.supports(cleanQuery);
-  } catch (e) {
-    console.warn(`Invalid @supports query: ${supportsQuery}`, e);
-    return false;
-  }
+	try {
+		// Remove the @supports prefix if present and clean up the query
+		const cleanQuery = supportsQuery.replace(/^@supports\s+/i, '').trim();
+		return CSS.supports(cleanQuery);
+	} catch (e) {
+		console.warn(`Invalid @supports query: ${supportsQuery}`, e);
+		return false;
+	}
 }
 
 /**
@@ -522,17 +495,12 @@ function evaluateSupportsQuery(supportsQuery: string): boolean {
  * @param element - The HTML element to evaluate the query against (optional).
  * @returns `true` if the condition is met, `false` otherwise.
  */
-function evaluateContainerQuery(
-  containerQuery: string,
-  element?: Element,
-): boolean {
-  // TODO: Wait for browsers to implement Element.matchContainer()
-  //       https://github.com/w3c/csswg-drafts/issues/6205
-  //       "[css-contain] Similar to window.matchMedia(), Container Queries should have a similar method"
-  console.warn(
-    `Container query evaluation not fully implemented: ${containerQuery}`,
-  );
-  return true; // Placeholder - implement based on your needs
+function evaluateContainerQuery(containerQuery: string, element?: Element): boolean {
+	// TODO: Wait for browsers to implement Element.matchContainer()
+	//       https://github.com/w3c/csswg-drafts/issues/6205
+	//       "[css-contain] Similar to window.matchMedia(), Container Queries should have a similar method"
+	console.warn(`Container query evaluation not fully implemented: ${containerQuery}`);
+	return true; // Placeholder - implement based on your needs
 }
 
 /**
@@ -542,24 +510,21 @@ function evaluateContainerQuery(
  * @param element - The HTML element to evaluate the conditions against (optional).
  * @returns `true` if all conditions are met, `false` otherwise.
  */
-function areConditionalContextsMet(
-  contexts: ConditionalContext[],
-  element?: Element,
-): boolean {
-  return contexts.every((context) => {
-    switch (context.type) {
-      case "media":
-        return evaluateMediaQuery(context.condition);
-      case "supports":
-        return evaluateSupportsQuery(context.condition);
-      case "container":
-        return evaluateContainerQuery(context.condition, element);
-      case "none":
-        return true;
-      default:
-        return false;
-    }
-  });
+function areConditionalContextsMet(contexts: ConditionalContext[], element?: Element): boolean {
+	return contexts.every((context) => {
+		switch (context.type) {
+			case 'media':
+				return evaluateMediaQuery(context.condition);
+			case 'supports':
+				return evaluateSupportsQuery(context.condition);
+			case 'container':
+				return evaluateContainerQuery(context.condition, element);
+			case 'none':
+				return true;
+			default:
+				return false;
+		}
+	});
 }
 
 /**
@@ -569,36 +534,36 @@ function areConditionalContextsMet(
  * them against the element's *actual* current DOM state.
  */
 function rewriteSelectorForStates(
-  selectorText: string,
-  statesToForce: ReadonlySet<string>,
+	selectorText: string,
+	statesToForce: ReadonlySet<string>
 ): string {
-  if (statesToForce.size === 0) return selectorText;
+	if (statesToForce.size === 0) return selectorText;
 
-  let ast: csstree.CssNode;
-  try {
-    ast = csstree.parse(selectorText, { context: "selectorList" });
-  } catch {
-    return selectorText; // fall back; matches() will just fail on it later
-  }
+	let ast: csstree.CssNode;
+	try {
+		ast = csstree.parse(selectorText, { context: 'selectorList' });
+	} catch {
+		return selectorText; // fall back; matches() will just fail on it later
+	}
 
-  csstree.walk(ast, {
-    visit: "PseudoClassSelector",
-    enter(node, item, list) {
-      if (!list) return;
-      const name = node.name.toLowerCase();
-      if (statesToForce.has(name)) {
-        list.replace(
-          item,
-          list.createItem({
-            type: "ClassSelector",
-            name: markerClassFor(name),
-          } as csstree.ClassSelector),
-        );
-      }
-    },
-  });
+	csstree.walk(ast, {
+		visit: 'PseudoClassSelector',
+		enter(node, item, list) {
+			if (!list) return;
+			const name = node.name.toLowerCase();
+			if (statesToForce.has(name)) {
+				list.replace(
+					item,
+					list.createItem({
+						type: 'ClassSelector',
+						name: markerClassFor(name)
+					} as csstree.ClassSelector)
+				);
+			}
+		}
+	});
 
-  return csstree.generate(ast);
+	return csstree.generate(ast);
 }
 
 /**
@@ -609,52 +574,48 @@ function rewriteSelectorForStates(
  * @returns An array of CSSRuleAnalysis objects that match the element.
  */
 function getMatchingRulesForElement(
-  element: Element,
-  allRules: CSSRuleAnalysis[],
-  statesToForce: ReadonlySet<string> = new Set(),
+	element: Element,
+	allRules: CSSRuleAnalysis[],
+	statesToForce: ReadonlySet<string> = new Set()
 ): CSSRuleAnalysis[] {
-  const markerClasses = Array.from(statesToForce, markerClassFor);
+	const markerClasses = Array.from(statesToForce, markerClassFor);
 
-  const hasClassAttribute = element.hasAttribute("class");
+	const hasClassAttribute = element.hasAttribute('class');
 
-  try {
-    return allRules.filter((rule) => {
-      try {
-        // First check if the selector matches
-        if (statesToForce.size) {
-          const testSelector = rewriteSelectorForStates(
-            rule.selector,
-            FORCEABLE_STATE_PSEUDOS,
-          );
+	try {
+		return allRules.filter((rule) => {
+			try {
+				// First check if the selector matches
+				if (statesToForce.size) {
+					const testSelector = rewriteSelectorForStates(rule.selector, FORCEABLE_STATE_PSEUDOS);
 
-          const matchesWithout = element.matches(testSelector);
-          if (markerClasses.length) element.classList.add(...markerClasses);
-          const matchesWith = element.matches(testSelector);
-          if (!matchesWith || matchesWithout) return false;
-        } else {
-          if (!element.matches(rule.selector)) {
-            return false;
-          }
-        }
+					const matchesWithout = element.matches(testSelector);
+					if (markerClasses.length) element.classList.add(...markerClasses);
+					const matchesWith = element.matches(testSelector);
+					if (!matchesWith || matchesWithout) return false;
+				} else {
+					if (!element.matches(rule.selector)) {
+						return false;
+					}
+				}
 
-        // Then check if all conditional contexts are met
-        return areConditionalContextsMet(rule.conditionalContexts, element);
-      } catch (e) {
-        // Handle invalid selectors gracefully, e.g., log error to console
-        console.warn(
-          `Skipping rule with invalid selector "${rule.selector}" for element`,
-          element,
-          ". Error:",
-          e,
-        );
-        return false;
-      }
-    });
-  } finally {
-    if (markerClasses.length && hasClassAttribute)
-      element.classList.remove(...markerClasses);
-    else if (markerClasses.length) element.removeAttribute("class");
-  }
+				// Then check if all conditional contexts are met
+				return areConditionalContextsMet(rule.conditionalContexts, element);
+			} catch (e) {
+				// Handle invalid selectors gracefully, e.g., log error to console
+				console.warn(
+					`Skipping rule with invalid selector "${rule.selector}" for element`,
+					element,
+					'. Error:',
+					e
+				);
+				return false;
+			}
+		});
+	} finally {
+		if (markerClasses.length && hasClassAttribute) element.classList.remove(...markerClasses);
+		else if (markerClasses.length) element.removeAttribute('class');
+	}
 }
 
 /**
@@ -665,225 +626,216 @@ function getMatchingRulesForElement(
  * @returns An ElementStyleAnalysis object containing the resolved styles and cascade details.
  */
 export function resolveCascadeForElement(
-  element: Element,
-  allRules: CSSRuleAnalysis[],
-  statesToForce: ReadonlySet<string> = new Set(),
-  inlineStyleAttribute: string = "style",
+	element: Element,
+	allRules: CSSRuleAnalysis[],
+	statesToForce: ReadonlySet<string> = new Set(),
+	inlineStyleAttribute: string = 'style'
 ): ElementStyleAnalysis {
-  const matchingRules = getMatchingRulesForElement(
-    element,
-    allRules,
-    statesToForce,
-  );
+	const matchingRules = getMatchingRulesForElement(element, allRules, statesToForce);
 
-  const inlineStyles = getInlineStylesForElement(element, inlineStyleAttribute);
-  if (inlineStyles) matchingRules.push(inlineStyles);
+	const inlineStyles = getInlineStylesForElement(element, inlineStyleAttribute);
+	if (inlineStyles) matchingRules.push(inlineStyles);
 
-  const finalProperties: { [key: string]: CSSPropertyInfo } = {};
-  const propertiesToConsider: { [key: string]: CSSPropertyInfo[] } = {};
+	const finalProperties: { [key: string]: CSSPropertyInfo } = {};
+	const propertiesToConsider: { [key: string]: CSSPropertyInfo[] } = {};
 
-  matchingRules.forEach((rule) => {
-    rule.properties.forEach((prop) => {
-      // NEW LOGIC: Expand property here with element context
-      // 'prop' here still holds the original declared property name (e.g., 'margin')
-      const expandedProps = expandProperty(prop, element); // Call the new expansion function
+	matchingRules.forEach((rule) => {
+		rule.properties.forEach((prop) => {
+			// NEW LOGIC: Expand property here with element context
+			// 'prop' here still holds the original declared property name (e.g., 'margin')
+			const expandedProps = expandProperty(prop, element); // Call the new expansion function
 
-      expandedProps.forEach((expandedProp) => {
-        // Ensure all necessary internal cascade properties are carried over or set
-        // These properties are part of the original 'rule' or 'prop' itself,
-        // and must be copied to the new 'expandedProp' for correct sorting.
-        if (!propertiesToConsider[expandedProp.name]) {
-          propertiesToConsider[expandedProp.name] = [];
-        }
-        propertiesToConsider[expandedProp.name].push({
-          ...expandedProp, // Includes name (physical), value, important, originalPropertyName etc.
-          _ruleOrderIndex: rule.orderIndex, // From the parent rule
-          _ruleOrigin: rule.origin, // From the parent rule
-          specificity: rule.specificity, // From the parent rule
-        });
-      });
-    });
-  });
+			expandedProps.forEach((expandedProp) => {
+				// Ensure all necessary internal cascade properties are carried over or set
+				// These properties are part of the original 'rule' or 'prop' itself,
+				// and must be copied to the new 'expandedProp' for correct sorting.
+				if (!propertiesToConsider[expandedProp.name]) {
+					propertiesToConsider[expandedProp.name] = [];
+				}
+				propertiesToConsider[expandedProp.name].push({
+					...expandedProp, // Includes name (physical), value, important, originalPropertyName etc.
+					_ruleOrderIndex: rule.orderIndex, // From the parent rule
+					_ruleOrigin: rule.origin, // From the parent rule
+					specificity: rule.specificity // From the parent rule
+				});
+			});
+		});
+	});
 
-  /**
-   * Calculates a numerical score representing the precedence of a CSS declaration
-   * based on its origin, importance, and cascade layer. Higher score means higher precedence.
-   * This function implements the complex hierarchy of the CSS cascade.
-   *
-   * @param prop The CSSPropertyInfo object for the declaration.
-   * @returns A numerical score for cascade comparison.
-   */
-  const getCascadeScore = (prop: CSSPropertyInfo) => {
-    const origin = prop._ruleOrigin!;
-    const isImportant = prop.important;
-    const layerOrder = prop.layerName
-      ? globalLayerOrderMap.get(prop.layerName)
-      : undefined;
-    const isLayered = layerOrder !== undefined;
-    const totalLayers = globalLayerOrderMap.size; // Total number of layers discovered
+	/**
+	 * Calculates a numerical score representing the precedence of a CSS declaration
+	 * based on its origin, importance, and cascade layer. Higher score means higher precedence.
+	 * This function implements the complex hierarchy of the CSS cascade.
+	 *
+	 * @param prop The CSSPropertyInfo object for the declaration.
+	 * @returns A numerical score for cascade comparison.
+	 */
+	const getCascadeScore = (prop: CSSPropertyInfo) => {
+		const origin = prop._ruleOrigin!;
+		const isImportant = prop.important;
+		const layerOrder = prop.layerName ? globalLayerOrderMap.get(prop.layerName) : undefined;
+		const isLayered = layerOrder !== undefined;
+		const totalLayers = globalLayerOrderMap.size; // Total number of layers discovered
 
-    const INC = totalLayers + 1;
-    let score = 0; // Base score for this declaration
+		const INC = totalLayers + 1;
+		let score = 0; // Base score for this declaration
 
-    // Step 1: Handle Transitions (absolute highest and lowest in the cascade)
-    if (origin === "transition") {
-      return isImportant ? Infinity : -Infinity; // Transitions are always highest !important or lowest normal
-    }
+		// Step 1: Handle Transitions (absolute highest and lowest in the cascade)
+		if (origin === 'transition') {
+			return isImportant ? Infinity : -Infinity; // Transitions are always highest !important or lowest normal
+		}
 
-    // Step 2: Handle !important declarations (high precedence group)
-    if (isImportant) {
-      // Order from highest !important to lowest !important (excluding transitions):
-      // User-agent > User > Inline > Author (layered: earlier declared wins) > Author (unlayered) > Animation
-      if (origin === "user-agent") score = INC * 11;
-      else if (origin === "user") score = INC * 10;
-      else if (origin === "inline")
-        score = INC * 9; // Inline `style` attribute (!important)
-      else if (origin === "author") {
-        // Author !important rules have a base score, then adjusted by layer.
-        // Earlier declared layers win for !important.
-        score = INC * 8; // Base score for author !important
-        if (isLayered) {
-          // For !important, smaller layerOrder (earlier declared) gets a higher score.
-          // If layerOrder is 0 (first declared), it gets the max bonus (totalLayers - 0).
-          score += totalLayers - (layerOrder || 0); // (layerOrder || 0) handles undefined safely
-        } else {
-          // Unlayered !important author declarations are *lower* than any layered !important author rules.
-          // Giving them a score equal to the base without layer bonus ensures this.
-          score += 0;
-        }
-      } else if (origin === "animation") score = INC * 7; // Animation !important is weakest among important declarations.
-    }
-    // Step 3: Handle Normal declarations (lower precedence group)
-    else {
-      // Order from highest normal to lowest normal (excluding transitions):
-      // Animation > Inline > Author (unlayered) > Author (layered: later declared wins) > User > User-agent
-      if (origin === "animation") score = INC * 6;
-      // Animation normal is highest among normal declarations.
-      else if (origin === "inline")
-        score = INC * 5; // Inline `style` attribute (normal)
-      else if (origin === "author") {
-        // Author normal rules have a base score, then adjusted by layer.
-        // Unlayered author normal declarations are *higher* than any layered author normal rules.
-        // Later declared layers win for normal rules.
-        score = INC * 3; // Base score for author normal
-        if (isLayered) {
-          // For normal, larger layerOrder (later declared) gets a higher score.
-          score += layerOrder || 0;
-        } else {
-          // Unlayered normal author is *stronger* than any layered normal author.
-          // Giving it a score higher than the max possible layered score ensures this.
-          score += INC;
-        }
-      } else if (origin === "user") score = INC * 2;
-      else if (origin === "user-agent") score = INC * 1;
-    }
-    return score;
-  };
+		// Step 2: Handle !important declarations (high precedence group)
+		if (isImportant) {
+			// Order from highest !important to lowest !important (excluding transitions):
+			// User-agent > User > Inline > Author (layered: earlier declared wins) > Author (unlayered) > Animation
+			if (origin === 'user-agent') score = INC * 11;
+			else if (origin === 'user') score = INC * 10;
+			else if (origin === 'inline')
+				score = INC * 9; // Inline `style` attribute (!important)
+			else if (origin === 'author') {
+				// Author !important rules have a base score, then adjusted by layer.
+				// Earlier declared layers win for !important.
+				score = INC * 8; // Base score for author !important
+				if (isLayered) {
+					// For !important, smaller layerOrder (earlier declared) gets a higher score.
+					// If layerOrder is 0 (first declared), it gets the max bonus (totalLayers - 0).
+					score += totalLayers - (layerOrder || 0); // (layerOrder || 0) handles undefined safely
+				} else {
+					// Unlayered !important author declarations are *lower* than any layered !important author rules.
+					// Giving them a score equal to the base without layer bonus ensures this.
+					score += 0;
+				}
+			} else if (origin === 'animation') score = INC * 7; // Animation !important is weakest among important declarations.
+		}
+		// Step 3: Handle Normal declarations (lower precedence group)
+		else {
+			// Order from highest normal to lowest normal (excluding transitions):
+			// Animation > Inline > Author (unlayered) > Author (layered: later declared wins) > User > User-agent
+			if (origin === 'animation') score = INC * 6;
+			// Animation normal is highest among normal declarations.
+			else if (origin === 'inline')
+				score = INC * 5; // Inline `style` attribute (normal)
+			else if (origin === 'author') {
+				// Author normal rules have a base score, then adjusted by layer.
+				// Unlayered author normal declarations are *higher* than any layered author normal rules.
+				// Later declared layers win for normal rules.
+				score = INC * 3; // Base score for author normal
+				if (isLayered) {
+					// For normal, larger layerOrder (later declared) gets a higher score.
+					score += layerOrder || 0;
+				} else {
+					// Unlayered normal author is *stronger* than any layered normal author.
+					// Giving it a score higher than the max possible layered score ensures this.
+					score += INC;
+				}
+			} else if (origin === 'user') score = INC * 2;
+			else if (origin === 'user-agent') score = INC * 1;
+		}
+		return score;
+	};
 
-  // For each property, apply the cascade algorithm to determine the winning declaration
-  for (const propName in propertiesToConsider) {
-    const declarations = propertiesToConsider[propName];
+	// For each property, apply the cascade algorithm to determine the winning declaration
+	for (const propName in propertiesToConsider) {
+		const declarations = propertiesToConsider[propName];
 
-    // REVERSE order for when the same property is declared multiple times WITHIN a rule,
-    //  the one that applies becomes the LAST one declared. Becase the sort puts the winning
-    //  declaration as the FIRST one in the list, we need to reverse the order to have the correct
-    //  final tie-break (i.e. when the sorting function leaves the order between two items unchanged).
-    declarations.reverse();
+		// REVERSE order for when the same property is declared multiple times WITHIN a rule,
+		//  the one that applies becomes the LAST one declared. Becase the sort puts the winning
+		//  declaration as the FIRST one in the list, we need to reverse the order to have the correct
+		//  final tie-break (i.e. when the sorting function leaves the order between two items unchanged).
+		declarations.reverse();
 
-    // Sort declarations based on the W3C Cascade Algorithm
-    declarations.sort((a, b) => {
-      // 1. Origin and Importance precedence (handled by getCascadeScore)
-      const scoreA = getCascadeScore(a);
-      const scoreB = getCascadeScore(b);
+		// Sort declarations based on the W3C Cascade Algorithm
+		declarations.sort((a, b) => {
+			// 1. Origin and Importance precedence (handled by getCascadeScore)
+			const scoreA = getCascadeScore(a);
+			const scoreB = getCascadeScore(b);
 
-      if (scoreA !== scoreB) {
-        return scoreB - scoreA; // Higher score wins
-      }
+			if (scoreA !== scoreB) {
+				return scoreB - scoreA; // Higher score wins
+			}
 
-      // 2. Specificity (A-B-C) - only if origin/importance/layer are equal
-      if (a.specificity && b.specificity) {
-        const isAGreater = specificityGreater(a.specificity, b.specificity);
-        if (isAGreater !== null) return isAGreater ? -1 : 1;
-      }
+			// 2. Specificity (A-B-C) - only if origin/importance/layer are equal
+			if (a.specificity && b.specificity) {
+				const isAGreater = specificityGreater(a.specificity, b.specificity);
+				if (isAGreater !== null) return isAGreater ? -1 : 1;
+			}
 
-      // 3. Order of Appearance (final tie-breaker if all else is equal)
-      return b._ruleOrderIndex! - a._ruleOrderIndex!; // Later declared rule wins
-    });
+			// 3. Order of Appearance (final tie-breaker if all else is equal)
+			return b._ruleOrderIndex! - a._ruleOrderIndex!; // Later declared rule wins
+		});
 
-    if (declarations.length > 0) {
-      const winningDeclaration = declarations[0];
-      // Store the winning declaration in finalProperties
-      finalProperties[propName] = {
-        ...winningDeclaration,
-        active: true,
-      };
+		if (declarations.length > 0) {
+			const winningDeclaration = declarations[0];
+			// Store the winning declaration in finalProperties
+			finalProperties[propName] = {
+				...winningDeclaration,
+				active: true
+			};
 
-      // Mark overshadowed properties
-      for (let i = 1; i < declarations.length; i++) {
-        declarations[i].active = false;
-        declarations[i].overshadowedBy = {
-          // Use originalPropertyName for better context on overshadowed properties
-          ruleSelector:
-            declarations[i].originalPropertyName || declarations[i].name,
-          layerName: declarations[i].layerName,
-        };
-      }
-    }
-  }
+			// Mark overshadowed properties
+			for (let i = 1; i < declarations.length; i++) {
+				declarations[i].active = false;
+				declarations[i].overshadowedBy = {
+					// Use originalPropertyName for better context on overshadowed properties
+					ruleSelector: declarations[i].originalPropertyName || declarations[i].name,
+					layerName: declarations[i].layerName
+				};
+			}
+		}
+	}
 
-  // (Post-cascade) Determine inherited properties
-  const computedBrowserStyles = window.getComputedStyle(element);
+	// (Post-cascade) Determine inherited properties
+	const computedBrowserStyles = window.getComputedStyle(element);
 
-  // Update the original matchingRules with the `active` status based on `finalProperties`
-  const updatedMatchingRules = matchingRules.map((rule) => {
-    const updatedProperties = rule.properties.map((prop) => {
-      // Find match of originalPropertyName in finalProperties with original properties
-      const propNameMatch = Object.entries(finalProperties).find(
-        ([, { originalPropertyName }]) => originalPropertyName === prop.name,
-      );
-      const finalProp = propNameMatch
-        ? finalProperties[propNameMatch[1].name]
-        : null;
+	// Update the original matchingRules with the `active` status based on `finalProperties`
+	const updatedMatchingRules = matchingRules.map((rule) => {
+		const updatedProperties = rule.properties.map((prop) => {
+			// Find match of originalPropertyName in finalProperties with original properties
+			const propNameMatch = Object.entries(finalProperties).find(
+				([, { originalPropertyName }]) => originalPropertyName === prop.name
+			);
+			const finalProp = propNameMatch ? finalProperties[propNameMatch[1].name] : null;
 
-      // Check if this specific property declaration (from this rule) is the one that won
-      // Compare all key identifiers to ensure it's the exact declaration instance
-      if (
-        finalProp &&
-        finalProp.value === prop.value &&
-        finalProp.important === prop.important &&
-        finalProp.source === prop.source &&
-        finalProp.layerName === prop.layerName &&
-        finalProp._ruleOrderIndex === rule.orderIndex && // Compare ruleOrderIndex, which is the closest thing to an ID we have
-        prop.specificity?.[0] === finalProp.specificity?.[0] && // Compare specificity components too
-        prop.specificity?.[1] === finalProp.specificity?.[1] &&
-        prop.specificity?.[2] === finalProp.specificity?.[2] &&
-        prop.specificity?.[3] === finalProp.specificity?.[3] &&
-        prop.originalPropertyName === finalProp.originalPropertyName // Compare original property name
-        // (note we do not compare .name, which is mapped to a physical property in finalProperties)
-      ) {
-        return { ...prop, active: true };
-      } else {
-        return {
-          ...prop,
-          active: false,
-          overshadowedBy: finalProp
-            ? {
-                ruleSelector: rule.selector,
-                layerName: finalProp.layerName,
-              }
-            : undefined,
-        };
-      }
-    });
-    return { ...rule, properties: updatedProperties };
-  });
+			// Check if this specific property declaration (from this rule) is the one that won
+			// Compare all key identifiers to ensure it's the exact declaration instance
+			if (
+				finalProp &&
+				finalProp.value === prop.value &&
+				finalProp.important === prop.important &&
+				finalProp.source === prop.source &&
+				finalProp.layerName === prop.layerName &&
+				finalProp._ruleOrderIndex === rule.orderIndex && // Compare ruleOrderIndex, which is the closest thing to an ID we have
+				prop.specificity?.[0] === finalProp.specificity?.[0] && // Compare specificity components too
+				prop.specificity?.[1] === finalProp.specificity?.[1] &&
+				prop.specificity?.[2] === finalProp.specificity?.[2] &&
+				prop.specificity?.[3] === finalProp.specificity?.[3] &&
+				prop.originalPropertyName === finalProp.originalPropertyName // Compare original property name
+				// (note we do not compare .name, which is mapped to a physical property in finalProperties)
+			) {
+				return { ...prop, active: true };
+			} else {
+				return {
+					...prop,
+					active: false,
+					overshadowedBy: finalProp
+						? {
+								ruleSelector: rule.selector,
+								layerName: finalProp.layerName
+							}
+						: undefined
+				};
+			}
+		});
+		return { ...rule, properties: updatedProperties };
+	});
 
-  return {
-    element,
-    computedStyles: computedBrowserStyles,
-    matchingRules: updatedMatchingRules,
-    finalProperties,
-  };
+	return {
+		element,
+		computedStyles: computedBrowserStyles,
+		matchingRules: updatedMatchingRules,
+		finalProperties
+	};
 }
 
 // The list was automatically generated by going to https://www.w3.org/TR/2018/WD-css-logical-1-20180827/
@@ -967,27 +919,22 @@ const logicalPropsMaps_: LogicalPropsMaps = [
 ];
 
 // Recursively expands a prop name into a flat list of prop names that don't appear in the map as keys
-const expandProp = (
-  logicalPropsMaps: LogicalPropsMaps,
-  prop: string,
-): string | string[] => {
-  const mapFind = logicalPropsMaps.find((map) => map[0] === prop);
-  if (!mapFind) return prop;
-  const newProps = mapFind[1].map((newProp) =>
-    expandProp(logicalPropsMaps, newProp),
-  );
-  return newProps.flat(1);
+const expandProp = (logicalPropsMaps: LogicalPropsMaps, prop: string): string | string[] => {
+	const mapFind = logicalPropsMaps.find((map) => map[0] === prop);
+	if (!mapFind) return prop;
+	const newProps = mapFind[1].map((newProp) => expandProp(logicalPropsMaps, newProp));
+	return newProps.flat(1);
 };
 
 function expandLogicalProps(logicalPropsMaps: LogicalPropsMaps) {
-  const final: LogicalPropsMaps = [];
-  for (const prop of logicalPropsMaps) {
-    const expanded = expandProp(logicalPropsMaps, prop[0]);
-    const expandedLst = typeof expanded === "object" ? expanded : [expanded];
-    // Remove duplicates from expandedLst
-    final.push([prop[0], Array(...new Set(expandedLst))]);
-  }
-  return final;
+	const final: LogicalPropsMaps = [];
+	for (const prop of logicalPropsMaps) {
+		const expanded = expandProp(logicalPropsMaps, prop[0]);
+		const expandedLst = typeof expanded === 'object' ? expanded : [expanded];
+		// Remove duplicates from expandedLst
+		final.push([prop[0], Array(...new Set(expandedLst))]);
+	}
+	return final;
 }
 
 // This recursive expansion of the auto-generated logicalPropsMaps_ is so that
@@ -999,77 +946,73 @@ const logicalPropsMaps = expandLogicalProps(logicalPropsMaps_);
 console.log(logicalPropsMaps);
 
 function mapPropToPhysical(propName: string, el: Element): string[] {
-  // Determine how the "block" and "inline" properties should be interpreted using getComputedStyle on el.
-  //  They should be mapped to the physical "top", "right", "bottom", and "left" properties, with "width" being interpreted
-  //  as "left" and "right" and "height" being interpreted as "top" and "bottom"
-  if (!logicalPropsMaps.some(([logical]) => logical === propName)) {
-    // If the property is not a logical propety but is a shorthand, expand the shorthand
-    //  Note: The code handling logical properties also expands shorthand logical properties, which
-    //         removes the need of using "css-shorthand-properties" in that case (and a good thing
-    //         too, as the package doesn't deal with logical shorthand properties currently).
-    if (isShorthand(propName)) return expand(propName, true).flat();
-    // If the property is not a logical property and not shorthand, return it as is.
-    else return [propName];
-  }
+	// Determine how the "block" and "inline" properties should be interpreted using getComputedStyle on el.
+	//  They should be mapped to the physical "top", "right", "bottom", and "left" properties, with "width" being interpreted
+	//  as "left" and "right" and "height" being interpreted as "top" and "bottom"
+	if (!logicalPropsMaps.some(([logical]) => logical === propName)) {
+		// If the property is not a logical propety but is a shorthand, expand the shorthand
+		//  Note: The code handling logical properties also expands shorthand logical properties, which
+		//         removes the need of using "css-shorthand-properties" in that case (and a good thing
+		//         too, as the package doesn't deal with logical shorthand properties currently).
+		if (isShorthand(propName)) return expand(propName, true).flat();
+		// If the property is not a logical property and not shorthand, return it as is.
+		else return [propName];
+	}
 
-  const computedStyle = window.getComputedStyle(el);
+	const computedStyle = window.getComputedStyle(el);
 
-  const writingMode =
-    computedStyle.getPropertyValue("writing-mode") || "horizontal-tb";
+	const writingMode = computedStyle.getPropertyValue('writing-mode') || 'horizontal-tb';
 
-  const direction = computedStyle.getPropertyValue("direction") || "ltr";
-  const isLTR = direction === "ltr";
+	const direction = computedStyle.getPropertyValue('direction') || 'ltr';
+	const isLTR = direction === 'ltr';
 
-  const orientation = computedStyle.getPropertyValue("text-orientation");
-  const isUpright = orientation === "upright";
+	const orientation = computedStyle.getPropertyValue('text-orientation');
+	const isUpright = orientation === 'upright';
 
-  type PhysicalDir = "top" | "right" | "bottom" | "left";
-  let blockStart: PhysicalDir, inlineStart: PhysicalDir;
-  // This logic is very specific, and derived from systematically trying all combinations
-  //  using Firefox and the inspector
-  if (writingMode === "horizontal-tb") {
-    blockStart = "top";
-    inlineStart = isLTR ? "left" : "right";
-  } else if (writingMode === "vertical-rl") {
-    blockStart = "right";
-    inlineStart = isLTR || isUpright ? "top" : "bottom";
-  } else if (writingMode === "sideways-rl") {
-    blockStart = "right";
-    inlineStart = isLTR ? "top" : "bottom";
-  } else if (writingMode === "vertical-lr") {
-    blockStart = "left";
-    inlineStart = isLTR || isUpright ? "top" : "bottom";
-  } else if (writingMode === "sideways-lr") {
-    blockStart = "left";
-    // This discrepancy is particularly interesting/strange
-    inlineStart = isLTR ? "bottom" : "top";
-  }
+	type PhysicalDir = 'top' | 'right' | 'bottom' | 'left';
+	let blockStart: PhysicalDir, inlineStart: PhysicalDir;
+	// This logic is very specific, and derived from systematically trying all combinations
+	//  using Firefox and the inspector
+	if (writingMode === 'horizontal-tb') {
+		blockStart = 'top';
+		inlineStart = isLTR ? 'left' : 'right';
+	} else if (writingMode === 'vertical-rl') {
+		blockStart = 'right';
+		inlineStart = isLTR || isUpright ? 'top' : 'bottom';
+	} else if (writingMode === 'sideways-rl') {
+		blockStart = 'right';
+		inlineStart = isLTR ? 'top' : 'bottom';
+	} else if (writingMode === 'vertical-lr') {
+		blockStart = 'left';
+		inlineStart = isLTR || isUpright ? 'top' : 'bottom';
+	} else if (writingMode === 'sideways-lr') {
+		blockStart = 'left';
+		// This discrepancy is particularly interesting/strange
+		inlineStart = isLTR ? 'bottom' : 'top';
+	}
 
-  const oppositeDir = (dir: PhysicalDir): PhysicalDir => {
-    if (dir === "top") return "bottom";
-    else if (dir === "bottom") return "top";
-    else if (dir === "left") return "right";
-    else if (dir === "right") return "left";
-    else
-      throw new Error("'dir' must be one of 'top', 'right', 'bottom', 'left'");
-  };
+	const oppositeDir = (dir: PhysicalDir): PhysicalDir => {
+		if (dir === 'top') return 'bottom';
+		else if (dir === 'bottom') return 'top';
+		else if (dir === 'left') return 'right';
+		else if (dir === 'right') return 'left';
+		else throw new Error("'dir' must be one of 'top', 'right', 'bottom', 'left'");
+	};
 
-  const match = (paramName: string, dir: PhysicalDir) => {
-    if (dir === "left" || dir === "right")
-      return paramName.includes(dir) || paramName.includes("width");
-    if (dir === "top" || dir === "bottom")
-      return paramName.includes(dir) || paramName.includes("height");
-  };
+	const match = (paramName: string, dir: PhysicalDir) => {
+		if (dir === 'left' || dir === 'right')
+			return paramName.includes(dir) || paramName.includes('width');
+		if (dir === 'top' || dir === 'bottom')
+			return paramName.includes(dir) || paramName.includes('height');
+	};
 
-  const physicalProps = logicalPropsMaps.find(
-    ([logical]) => logical === propName,
-  )![1];
+	const physicalProps = logicalPropsMaps.find(([logical]) => logical === propName)![1];
 
-  const filteredPhysicalProps = physicalProps.filter((physical) => {
-    const logical = propName;
-    // prettier-ignore
-    // Maps to 1 other property
-    if (logical.includes("block-start")) return match(physical, blockStart);
+	const filteredPhysicalProps = physicalProps.filter((physical) => {
+		const logical = propName;
+		// prettier-ignore
+		// Maps to 1 other property
+		if (logical.includes("block-start")) return match(physical, blockStart);
     else if (logical.includes("block-end")) return match(physical, oppositeDir(blockStart));
     else if (logical.includes("inline-start")) return match(physical, inlineStart);
     else if (logical.includes("inline-end")) return match(physical, oppositeDir(inlineStart));
@@ -1084,39 +1027,36 @@ function mapPropToPhysical(propName: string, el: Element): string[] {
     else if (logical.includes("inline")) return match(physical, inlineStart) || match(physical, oppositeDir(inlineStart))
     // Shorthand that maps to 4 properties
     else return true;
-  });
+	});
 
-  return filteredPhysicalProps;
+	return filteredPhysicalProps;
 }
 
-function expandProperty(
-  originalProp: CSSPropertyInfo,
-  element?: Element,
-): CSSPropertyInfo[] {
-  // Helper to create an expanded prop, copying core details from the original
-  const createPhysicalPropInfo = (physicalName: string): CSSPropertyInfo => ({
-    name: physicalName,
-    value: originalProp.value,
-    important: originalProp.important,
-    active: false, // Will be determined by cascade resolution
-    inherited: false,
-    source: originalProp.source,
-    layerName: originalProp.layerName,
-    specificity: originalProp.specificity,
-    originalPropertyName: originalProp.name, // Link back to the original shorthand/logical property
-    // Carry over internal cascade properties
-    _ruleOrderIndex: originalProp._ruleOrderIndex,
-    _ruleOrigin: originalProp._ruleOrigin,
-  });
-  if (!element) {
-    // If no element context, cannot perform accurate expansion. Return original as-is.
-    console.warn(
-      `expandProperty: Cannot expand '${originalProp.name}' without element context. Treating as single physical property.`,
-    );
-    return [createPhysicalPropInfo(originalProp.name)];
-  }
+function expandProperty(originalProp: CSSPropertyInfo, element?: Element): CSSPropertyInfo[] {
+	// Helper to create an expanded prop, copying core details from the original
+	const createPhysicalPropInfo = (physicalName: string): CSSPropertyInfo => ({
+		name: physicalName,
+		value: originalProp.value,
+		important: originalProp.important,
+		active: false, // Will be determined by cascade resolution
+		inherited: false,
+		source: originalProp.source,
+		layerName: originalProp.layerName,
+		specificity: originalProp.specificity,
+		originalPropertyName: originalProp.name, // Link back to the original shorthand/logical property
+		// Carry over internal cascade properties
+		_ruleOrderIndex: originalProp._ruleOrderIndex,
+		_ruleOrigin: originalProp._ruleOrigin
+	});
+	if (!element) {
+		// If no element context, cannot perform accurate expansion. Return original as-is.
+		console.warn(
+			`expandProperty: Cannot expand '${originalProp.name}' without element context. Treating as single physical property.`
+		);
+		return [createPhysicalPropInfo(originalProp.name)];
+	}
 
-  return mapPropToPhysical(originalProp.name, element).map((physicalPropName) =>
-    createPhysicalPropInfo(physicalPropName),
-  );
+	return mapPropToPhysical(originalProp.name, element).map((physicalPropName) =>
+		createPhysicalPropInfo(physicalPropName)
+	);
 }

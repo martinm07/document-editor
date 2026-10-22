@@ -1,34 +1,18 @@
 import {
-  savedComponents,
-  selection,
-  type SavedComponent,
-  doc,
-  compPartToInheritedAttrs,
-  type PropsList,
-  type SavedComponentOptionalIdentName,
-  type DocCSSRule,
-} from "../store.svelte";
-import {
-  getElementString,
-  reconstructHTMLString,
-  type DocNodeMap,
-} from "../documents/docsyncing";
-import {
-  DynamicStylesheet,
-  getAllChildNodes,
-  getNodeParents,
-  parseHTMLFragment,
-} from "../helper";
-import {
-  isNotBody,
-  isHistoryNotBody,
-  isHistoryNotBodyContainer,
-} from "../App.svelte";
-import { getAttributesRespectingMasks } from "../editors/attributes/AttributesEditor.svelte";
-import {
-  generateRuleString,
-  parseStylesheetStr,
-} from "../documents/DocStyles.svelte";
+	savedComponents,
+	selection,
+	type SavedComponent,
+	doc,
+	compPartToInheritedAttrs,
+	type PropsList,
+	type SavedComponentOptionalIdentName,
+	type DocCSSRule
+} from '../store.svelte';
+import { getElementString, reconstructHTMLString, type DocNodeMap } from '../documents/docsyncing';
+import { DynamicStylesheet, getAllChildNodes, getNodeParents, parseHTMLFragment } from '../helper';
+import { isNotBody, isHistoryNotBody, isHistoryNotBodyContainer } from '../App.svelte';
+import { getAttributesRespectingMasks } from '../editors/attributes/AttributesEditor.svelte';
+import { generateRuleString, parseStylesheetStr } from '../documents/DocStyles.svelte';
 
 const encodeStr = (str: string) => encodeURI(str);
 const decodeStr = (str: string) => decodeURI(str);
@@ -37,253 +21,230 @@ const decodeStr = (str: string) => decodeURI(str);
  * Using 1-based indexing
  */
 function getSiblingIndex(el: Element) {
-  const parent = el.parentElement;
-  if (!parent) return 1;
-  const index = Array.from(parent.children)
-    .filter((el) => !isNotBody(el) && !isHistoryNotBody(el))
-    .indexOf(el);
-  if (index === -1)
-    throw new Error("Somehow parent element didn't have element as child.");
-  return index + 1;
+	const parent = el.parentElement;
+	if (!parent) return 1;
+	const index = Array.from(parent.children)
+		.filter((el) => !isNotBody(el) && !isHistoryNotBody(el))
+		.indexOf(el);
+	if (index === -1) throw new Error("Somehow parent element didn't have element as child.");
+	return index + 1;
 }
 
 const indexOfAttr = (el: Element, attributeName: string) =>
-  Array.from(el.attributes).findIndex((attr) => attr.name === attributeName);
+	Array.from(el.attributes).findIndex((attr) => attr.name === attributeName);
 
-function replaceAttrAtIndex(
-  el: Element,
-  index: number,
-  name: string,
-  value: string,
-) {
-  const oldAttributes = Array.from(el.attributes);
-  if (index < 0 || index >= oldAttributes.length) {
-    console.error("Index out of range");
-    return;
-  }
-  oldAttributes.forEach((attr) => el.removeAttribute(attr.name));
+function replaceAttrAtIndex(el: Element, index: number, name: string, value: string) {
+	const oldAttributes = Array.from(el.attributes);
+	if (index < 0 || index >= oldAttributes.length) {
+		console.error('Index out of range');
+		return;
+	}
+	oldAttributes.forEach((attr) => el.removeAttribute(attr.name));
 
-  const newAttribute = document.createAttribute(name);
-  newAttribute.value = value;
-  const newAttributes = oldAttributes.toSpliced(index, 1, newAttribute);
+	const newAttribute = document.createAttribute(name);
+	newAttribute.value = value;
+	const newAttributes = oldAttributes.toSpliced(index, 1, newAttribute);
 
-  newAttributes.forEach((attr) => el.setAttribute(attr.name, attr.value));
+	newAttributes.forEach((attr) => el.setAttribute(attr.name, attr.value));
 }
 
 export function componentTypeToString(type: string | number) {
-  let typeNum: number;
-  if (typeof type === "string") {
-    typeNum = Number.parseInt(type);
-  } else typeNum = type;
-  if (isNaN(typeNum)) typeNum = 0;
+	let typeNum: number;
+	if (typeof type === 'string') {
+		typeNum = Number.parseInt(type);
+	} else typeNum = type;
+	if (isNaN(typeNum)) typeNum = 0;
 
-  switch (typeNum) {
-    case 0:
-      return "element";
-    case 1:
-      return "style";
-    case 2:
-      return "colour";
-    case 3:
-      return "svelte";
-    case 4:
-      return "media";
-    default:
-      return "element";
-  }
+	switch (typeNum) {
+		case 0:
+			return 'element';
+		case 1:
+			return 'style';
+		case 2:
+			return 'colour';
+		case 3:
+			return 'svelte';
+		case 4:
+			return 'media';
+		default:
+			return 'element';
+	}
 }
 
 export type CompTypeStr = ReturnType<typeof componentTypeToString>;
 
 export function componentTypeStrToNum(typeStr: CompTypeStr) {
-  switch (typeStr) {
-    case "element":
-      return "0";
-    case "style":
-      return "1";
-    case "colour":
-      return "2";
-    case "svelte":
-      return "3";
-    case "media":
-      return "4";
-  }
+	switch (typeStr) {
+		case 'element':
+			return '0';
+		case 'style':
+			return '1';
+		case 'colour':
+			return '2';
+		case 'svelte':
+			return '3';
+		case 'media':
+			return '4';
+	}
 }
 
 export function componentNameValid(str: string) {
-  return (
-    /-\[(\d+,)*\d+\]$/g.test(str) &&
-    savedComponents.some(({ name }) => str.startsWith(name))
-  );
+	return /-\[(\d+,)*\d+\]$/g.test(str) && savedComponents.some(({ name }) => str.startsWith(name));
 }
 
-export function getCompNameAndPart(
-  compName: string,
-): [name: string, part: string] {
-  if (!componentNameValid(compName))
-    // throw new Error(`Component name provided was invalid. Got: "${compName}"`);
-    console.warn(
-      `Component name provided was invalid (bad syntax or nonexistent component). Got: ${compName}`,
-    );
-  const nameParts = compName.split("-");
-  const partsArr = nameParts.at(-1)!.slice(1, -1);
-  return [nameParts.slice(0, -1).join("-"), partsArr];
+export function getCompNameAndPart(compName: string): [name: string, part: string] {
+	if (!componentNameValid(compName))
+		// throw new Error(`Component name provided was invalid. Got: "${compName}"`);
+		console.warn(
+			`Component name provided was invalid (bad syntax or nonexistent component). Got: ${compName}`
+		);
+	const nameParts = compName.split('-');
+	const partsArr = nameParts.at(-1)!.slice(1, -1);
+	return [nameParts.slice(0, -1).join('-'), partsArr];
 }
 
 type ParseElToCompPartReturn =
-  | { isComponentPart: false; name: undefined; part: undefined }
-  | { isComponentPart: true; name: string; part: string };
+	| { isComponentPart: false; name: undefined; part: undefined }
+	| { isComponentPart: true; name: string; part: string };
 const parseElToCompPart = (el: Element): ParseElToCompPartReturn => {
-  const partStr = el.getAttribute("data-component");
-  if (!partStr) {
-    if (typeof partStr === "string")
-      console.warn("Element has data-component attribute with no value:", el);
-    return {
-      isComponentPart: false,
-      name: undefined,
-      part: undefined,
-    };
-  }
+	const partStr = el.getAttribute('data-component');
+	if (!partStr) {
+		if (typeof partStr === 'string')
+			console.warn('Element has data-component attribute with no value:', el);
+		return {
+			isComponentPart: false,
+			name: undefined,
+			part: undefined
+		};
+	}
 
-  // data-component should be of the form e.g. "compname-[1,2]"
-  const parsed = /(.*)-\[(.+)\]/.exec(partStr);
-  let compName = parsed?.[1];
-  const part = parsed?.[2];
+	// data-component should be of the form e.g. "compname-[1,2]"
+	const parsed = /(.*)-\[(.+)\]/.exec(partStr);
+	let compName = parsed?.[1];
+	const part = parsed?.[2];
 
-  if (!parsed || !compName || !part) {
-    console.warn(
-      `data-component string "${partStr}" was not able to be parsed. For element:`,
-      el,
-    );
-    return {
-      isComponentPart: false,
-      name: undefined,
-      part: undefined,
-    };
-  }
+	if (!parsed || !compName || !part) {
+		console.warn(`data-component string "${partStr}" was not able to be parsed. For element:`, el);
+		return {
+			isComponentPart: false,
+			name: undefined,
+			part: undefined
+		};
+	}
 
-  // The nameMap is generated by the Python backend
-  // compName = nameMap[compName] ?? compName;
+	// The nameMap is generated by the Python backend
+	// compName = nameMap[compName] ?? compName;
 
-  return {
-    isComponentPart: true,
-    name: compName,
-    part,
-  };
+	return {
+		isComponentPart: true,
+		name: compName,
+		part
+	};
 };
 
 interface ElCompPartInfo {
-  // The value of the "data-component" attribute for this component part
-  attrValue: string;
+	// The value of the "data-component" attribute for this component part
+	attrValue: string;
 
-  part: string;
-  compName: string;
+	part: string;
+	compName: string;
 
-  // The HTML string representing this component
-  partBody: string;
-  partEl: Element;
+	// The HTML string representing this component
+	partBody: string;
+	partEl: Element;
 }
 
-export const extractPartsFromElCompStr = (
-  bodyStr: string,
-): ElCompPartInfo[] => {
-  const final: ElCompPartInfo[] = [];
+export const extractPartsFromElCompStr = (bodyStr: string): ElCompPartInfo[] => {
+	const final: ElCompPartInfo[] = [];
 
-  const body = decodeElComponentStr(bodyStr, "document");
-  const walker = document.createTreeWalker(body, NodeFilter.SHOW_ELEMENT);
+	const body = decodeElComponentStr(bodyStr, 'document');
+	const walker = document.createTreeWalker(body, NodeFilter.SHOW_ELEMENT);
 
-  const [parsedBodyStr, docNodes] = reconstructHTMLString(body, {
-    docContainer: body,
-    includeContainer: true,
-  });
+	const [parsedBodyStr, docNodes] = reconstructHTMLString(body, {
+		docContainer: body,
+		includeContainer: true
+	});
 
-  let el: Element;
-  while ((el = walker.nextNode() as Element)) {
-    const parsed = parseElToCompPart(el);
-    const elInfo = docNodes.get(el);
+	let el: Element;
+	while ((el = walker.nextNode() as Element)) {
+		const parsed = parseElToCompPart(el);
+		const elInfo = docNodes.get(el);
 
-    if (!elInfo) {
-      // prettier-ignore
-      console.error("Somehow docNodes didn't contain the element", el, ": ", docNodes);
-      continue;
-    }
+		if (!elInfo) {
+			// prettier-ignore
+			console.error("Somehow docNodes didn't contain the element", el, ": ", docNodes);
+			continue;
+		}
 
-    const partBody = parsedBodyStr.slice(
-      elInfo.stringPos,
-      elInfo.stringPos + elInfo.stringLen,
-    );
+		const partBody = parsedBodyStr.slice(elInfo.stringPos, elInfo.stringPos + elInfo.stringLen);
 
-    if (parsed.isComponentPart)
-      final.push({
-        attrValue: el.getAttribute("data-component")!,
-        part: parsed.part,
-        compName: parsed.name,
-        partBody,
-        partEl: el,
-      });
-  }
+		if (parsed.isComponentPart)
+			final.push({
+				attrValue: el.getAttribute('data-component')!,
+				part: parsed.part,
+				compName: parsed.name,
+				partBody,
+				partEl: el
+			});
+	}
 
-  return final;
+	return final;
 };
 
 // Currently unused
-export const extractPartsFromElCompEls = (
-  bodyNode: Node,
-): Omit<ElCompPartInfo, "partBody">[] => {
-  const final: Omit<ElCompPartInfo, "partBody">[] = [];
-  const walker = document.createTreeWalker(bodyNode, NodeFilter.SHOW_ELEMENT);
+export const extractPartsFromElCompEls = (bodyNode: Node): Omit<ElCompPartInfo, 'partBody'>[] => {
+	const final: Omit<ElCompPartInfo, 'partBody'>[] = [];
+	const walker = document.createTreeWalker(bodyNode, NodeFilter.SHOW_ELEMENT);
 
-  let el: Element;
-  while ((el = walker.nextNode() as Element)) {
-    const parsed = parseElToCompPart(el);
+	let el: Element;
+	while ((el = walker.nextNode() as Element)) {
+		const parsed = parseElToCompPart(el);
 
-    if (parsed.isComponentPart)
-      final.push({
-        attrValue: el.getAttribute("data-component")!,
-        part: parsed.part,
-        compName: parsed.name,
-        partEl: el,
-      });
-  }
+		if (parsed.isComponentPart)
+			final.push({
+				attrValue: el.getAttribute('data-component')!,
+				part: parsed.part,
+				compName: parsed.name,
+				partEl: el
+			});
+	}
 
-  return final;
+	return final;
 };
 
 interface StyleCompPartInfo {
-  partKey: string;
+	partKey: string;
 
-  compName: string;
-  part: string;
+	compName: string;
+	part: string;
 
-  partSelector: string;
-  partDeclarations: string;
+	partSelector: string;
+	partDeclarations: string;
 }
 
-export const extractPartsFromStyleCompStr = (
-  stylesheetStr: string,
-): StyleCompPartInfo[] => {
-  const parsed = parseStylesheetStr(stylesheetStr);
-  return parsed
-    .map((rule) => {
-      if (rule.compInheritance === null) {
-        console.error(
-          "parseStylesheetStr on style-type component returned rule without comp inheritance. stylsheetStr: ",
-          stylesheetStr,
-        );
-        return null;
-      }
+export const extractPartsFromStyleCompStr = (stylesheetStr: string): StyleCompPartInfo[] => {
+	const parsed = parseStylesheetStr(stylesheetStr);
+	return parsed
+		.map((rule) => {
+			if (rule.compInheritance === null) {
+				console.error(
+					'parseStylesheetStr on style-type component returned rule without comp inheritance. stylsheetStr: ',
+					stylesheetStr
+				);
+				return null;
+			}
 
-      const [compName, part] = getCompNameAndPart(rule.compInheritance);
+			const [compName, part] = getCompNameAndPart(rule.compInheritance);
 
-      return {
-        partKey: rule.compInheritance,
-        compName,
-        part,
-        partSelector: rule.selector,
-        partDeclarations: rule.declarations,
-      };
-    })
-    .filter((out) => out !== null);
+			return {
+				partKey: rule.compInheritance,
+				compName,
+				part,
+				partSelector: rule.selector,
+				partDeclarations: rule.declarations
+			};
+		})
+		.filter((out) => out !== null);
 };
 
 /////////////////////////////////////
@@ -299,95 +260,91 @@ export const extractPartsFromStyleCompStr = (
  * @returns
  */
 export function generateElCompContentStr(
-  topEl: HTMLElement,
-  htmlStr: string,
-  nodeMap: DocNodeMap,
-  compName: string,
+	topEl: HTMLElement,
+	htmlStr: string,
+	nodeMap: DocNodeMap,
+	compName: string
 ) {
-  // Create a list of string updates to add all the data-componet attributes to HTMLElements
-  const strUpdates: { insert: string; length: number; index: number }[] = [];
-  const allPartsStrings: string[] = [];
-  nodeMap.entries().forEach(([node, info]) => {
-    if (isHistoryNotBodyContainer(node)) {
-      // Remove history-not-body elements
-      strUpdates.push({
-        index: info.stringPos,
-        length: info.stringLen,
-        insert: "",
-      });
-    } else if (
-      info.isEl &&
-      node instanceof HTMLElement &&
-      !isHistoryNotBody(node)
-    ) {
-      // This creates a list of the element, then all its parents up-to-but-not-including topEl
-      //  (which is just the container for our component), reverses the order (to go from top-most
-      //  to bottom-most element) and creates a string of the sibling indexes of all these elements.
-      const partsStr = [node, ...getNodeParents(node, topEl)]
-        .toReversed()
-        .map((el) => getSiblingIndex(el))
-        .join(",");
+	// Create a list of string updates to add all the data-componet attributes to HTMLElements
+	const strUpdates: { insert: string; length: number; index: number }[] = [];
+	const allPartsStrings: string[] = [];
+	nodeMap.entries().forEach(([node, info]) => {
+		if (isHistoryNotBodyContainer(node)) {
+			// Remove history-not-body elements
+			strUpdates.push({
+				index: info.stringPos,
+				length: info.stringLen,
+				insert: ''
+			});
+		} else if (info.isEl && node instanceof HTMLElement && !isHistoryNotBody(node)) {
+			// This creates a list of the element, then all its parents up-to-but-not-including topEl
+			//  (which is just the container for our component), reverses the order (to go from top-most
+			//  to bottom-most element) and creates a string of the sibling indexes of all these elements.
+			const partsStr = [node, ...getNodeParents(node, topEl)]
+				.toReversed()
+				.map((el) => getSiblingIndex(el))
+				.join(',');
 
-      // Void elements end as "<img src='...' />", where non void elements end in "<div title='...'>"
-      const isVoidEl = htmlStr
-        .slice(info.stringPos, info.stringPos + info.startTagLen)
-        .endsWith(" />");
+			// Void elements end as "<img src='...' />", where non void elements end in "<div title='...'>"
+			const isVoidEl = htmlStr
+				.slice(info.stringPos, info.stringPos + info.startTagLen)
+				.endsWith(' />');
 
-      const newEl = document.createElement(node.tagName.toLowerCase());
-      Array.from(node.attributes).forEach((attr) => {
-        if (attr.name === "data-id") return;
-        if (attr.name === "data-complibver") return;
-        newEl.setAttribute(attr.name, attr.value);
-      });
-      newEl.setAttribute("data-component", `${compName}-[${partsStr}]`);
+			const newEl = document.createElement(node.tagName.toLowerCase());
+			Array.from(node.attributes).forEach((attr) => {
+				if (attr.name === 'data-id') return;
+				if (attr.name === 'data-complibver') return;
+				newEl.setAttribute(attr.name, attr.value);
+			});
+			newEl.setAttribute('data-component', `${compName}-[${partsStr}]`);
 
-      const [newTagStr] = getElementString(newEl);
+			const [newTagStr] = getElementString(newEl);
 
-      strUpdates.push({
-        index: info.stringPos,
-        length: info.startTagLen,
-        insert: newTagStr,
-      });
+			strUpdates.push({
+				index: info.stringPos,
+				length: info.startTagLen,
+				insert: newTagStr
+			});
 
-      allPartsStrings.push(partsStr);
-    }
-  });
+			allPartsStrings.push(partsStr);
+		}
+	});
 
-  // console.log("-------------------");
-  // console.log(htmlStr);
-  // console.log(strUpdates);
+	// console.log("-------------------");
+	// console.log(htmlStr);
+	// console.log(strUpdates);
 
-  // Sort so that the biggest index is first (avoiding index shifting)
-  strUpdates.sort((a, b) => b.index - a.index);
+	// Sort so that the biggest index is first (avoiding index shifting)
+	strUpdates.sort((a, b) => b.index - a.index);
 
-  strUpdates.forEach(({ index, length, insert }) => {
-    htmlStr = htmlStr.slice(0, index) + insert + htmlStr.slice(index + length);
-  });
+	strUpdates.forEach(({ index, length, insert }) => {
+		htmlStr = htmlStr.slice(0, index) + insert + htmlStr.slice(index + length);
+	});
 
-  // console.log(htmlStr);
-  // console.log("-------------------");
+	// console.log(htmlStr);
+	// console.log("-------------------");
 
-  return { content: htmlStr, parts: allPartsStrings.toSorted().join("|") };
+	return { content: htmlStr, parts: allPartsStrings.toSorted().join('|') };
 }
 
 export function generateStyleCompContentStr(
-  rules: DocCSSRule[],
-  compName: string,
+	rules: DocCSSRule[],
+	compName: string
 ): { content: string; parts: string } {
-  const content = rules
-    .map(
-      (rule, i) =>
-        `/*! COMP-INHERITED ${compName}-[${i + 1}]*/` +
-        generateRuleString(rule.selector, rule.declarations),
-    )
-    .join("\n");
+	const content = rules
+		.map(
+			(rule, i) =>
+				`/*! COMP-INHERITED ${compName}-[${i + 1}]*/` +
+				generateRuleString(rule.selector, rule.declarations)
+		)
+		.join('\n');
 
-  const parts = rules.map((_, i) => i).join("|");
-  // return rules
-  //   .map((rule) => generateRuleString(rule.selector, rule.declarations))
-  //   .join("\n");
+	const parts = rules.map((_, i) => i).join('|');
+	// return rules
+	//   .map((rule) => generateRuleString(rule.selector, rule.declarations))
+	//   .join("\n");
 
-  return { content, parts };
+	return { content, parts };
 }
 
 // FUN FACT: When the seperator given to .split() is a RegExp with capturing groups,
@@ -399,57 +356,50 @@ export function generateStyleCompContentStr(
  * @param for_ Whether the resulting DocumentFragment is to be inserted into a document, or to be used in editing the component itself (in the component library editor). When being editing in the editor, all the data-component attributes are removed.
  * @returns
  */
-export function decodeElComponentStr(
-  content: string,
-  for_: "document" | "component",
-) {
-  const fragment = document.createDocumentFragment();
-  const tempDiv = document.createElement("div");
+export function decodeElComponentStr(content: string, for_: 'document' | 'component') {
+	const fragment = document.createDocumentFragment();
+	const tempDiv = document.createElement('div');
 
-  const parsed = parseHTMLFragment(content);
-  parsed.forEach((node) => tempDiv.appendChild(node));
+	const parsed = parseHTMLFragment(content);
+	parsed.forEach((node) => tempDiv.appendChild(node));
 
-  if (for_ === "component") {
-    getAllChildNodes(tempDiv).forEach((node) => {
-      if (node instanceof HTMLElement) node.removeAttribute("data-component");
-      if (node instanceof HTMLElement)
-        node.removeAttribute("data-componentname");
-    });
-  } else if (for_ === "document") {
-    getAllChildNodes(tempDiv).forEach((node) => {
-      if (node instanceof HTMLElement) {
-        Array.from(node.attributes).forEach((attr, i) => {
-          if (attr.name === "style") {
-            replaceAttrAtIndex(node, i, "data-dummycompstyle", attr.value);
-          } else if (attr.name.startsWith("data-style-")) {
-            replaceAttrAtIndex(
-              node,
-              i,
-              `data-dummycompstyle-${attr.name.slice("data-style-".length)}`,
-              attr.value,
-            );
-          }
-        });
-      }
-    });
-  }
+	if (for_ === 'component') {
+		getAllChildNodes(tempDiv).forEach((node) => {
+			if (node instanceof HTMLElement) node.removeAttribute('data-component');
+			if (node instanceof HTMLElement) node.removeAttribute('data-componentname');
+		});
+	} else if (for_ === 'document') {
+		getAllChildNodes(tempDiv).forEach((node) => {
+			if (node instanceof HTMLElement) {
+				Array.from(node.attributes).forEach((attr, i) => {
+					if (attr.name === 'style') {
+						replaceAttrAtIndex(node, i, 'data-dummycompstyle', attr.value);
+					} else if (attr.name.startsWith('data-style-')) {
+						replaceAttrAtIndex(
+							node,
+							i,
+							`data-dummycompstyle-${attr.name.slice('data-style-'.length)}`,
+							attr.value
+						);
+					}
+				});
+			}
+		});
+	}
 
-  while (tempDiv.firstChild) fragment.appendChild(tempDiv.firstChild);
-  return fragment;
+	while (tempDiv.firstChild) fragment.appendChild(tempDiv.firstChild);
+	return fragment;
 }
 
 export function addCompLibVerAttrs(compInstance: DocumentFragment) {
-  const walker = document.createTreeWalker(
-    compInstance,
-    NodeFilter.SHOW_ELEMENT,
-  );
+	const walker = document.createTreeWalker(compInstance, NodeFilter.SHOW_ELEMENT);
 
-  let current: Node | null = walker.currentNode;
-  while (current) {
-    if (current instanceof Element)
-      current.setAttribute("data-complibver", doc.info.componentLibVer);
-    current = walker.nextNode();
-  }
+	let current: Node | null = walker.currentNode;
+	while (current) {
+		if (current instanceof Element)
+			current.setAttribute('data-complibver', doc.info.componentLibVer);
+		current = walker.nextNode();
+	}
 }
 
 /**
@@ -458,262 +408,242 @@ export function addCompLibVerAttrs(compInstance: DocumentFragment) {
  * @param componentElStyles If loading the library for the document editor, this should be a reference to the dynamic stylesheet for holding inherited component styles.
  */
 export function loadComponentLibrary(
-  compLib: SavedComponentOptionalIdentName[],
-  for_: "document" | "component",
-  componentElStyles: DynamicStylesheet<string>,
+	compLib: SavedComponentOptionalIdentName[],
+	for_: 'document' | 'component',
+	componentElStyles: DynamicStylesheet<string>
 ) {
-  const compLib_ = structuredClone(compLib).map((comp) => {
-    if (!comp.identName) comp.identName = comp.name;
-    return comp as SavedComponent;
-  });
+	const compLib_ = structuredClone(compLib).map((comp) => {
+		if (!comp.identName) comp.identName = comp.name;
+		return comp as SavedComponent;
+	});
 
-  savedComponents.splice(0, savedComponents.length, ...compLib_);
-  console.log("LOADING COMPONENT LIBRARY", compLib_, for_, componentElStyles);
+	savedComponents.splice(0, savedComponents.length, ...compLib_);
+	console.log('LOADING COMPONENT LIBRARY', compLib_, for_, componentElStyles);
 
-  componentElStyles.clear();
+	componentElStyles.clear();
 
-  if (for_ === "document") {
-    compLib_.forEach((comp) => {
-      if (comp.type !== "element") return;
+	if (for_ === 'document') {
+		compLib_.forEach((comp) => {
+			if (comp.type !== 'element') return;
 
-      const parts = extractPartsFromElCompStr(comp.content);
-      // console.log(comp.name, parts);
-      // console.log($state.snapshot(comp), $state.snapshot(parts));
-      parts.forEach((part) => {
-        const partAttrs = Array.from(part.partEl.attributes);
-        partAttrs.forEach((attr) => {
-          // Populate the dynamic stylesheet componentElStyles with components styles
-          // if (componentElStyles) {
-          if (attr.name === "data-dummycompstyle") {
-            const rule = `[data-component="${part.attrValue}"] { ${attr.value} }`;
-            componentElStyles.setRule(rule, part.attrValue);
-          } else if (attr.name.startsWith("data-dummycompstyle-")) {
-            const pseudoClass = attr.name.slice("data-dummycompstyle-".length);
-            const rule = `[data-component="${part.attrValue}"]:${pseudoClass} { ${attr.value} }`;
-            componentElStyles.setRule(rule, `${part.attrValue}-${pseudoClass}`);
-          }
-          // }
-        });
-        // Separately, set the number of attributes parsed on this part in the map compPartToInheritedAttrs,
-        //  signifying that for any instance of this component part, that first number of attributes are what are being inherited.
+			const parts = extractPartsFromElCompStr(comp.content);
+			// console.log(comp.name, parts);
+			// console.log($state.snapshot(comp), $state.snapshot(parts));
+			parts.forEach((part) => {
+				const partAttrs = Array.from(part.partEl.attributes);
+				partAttrs.forEach((attr) => {
+					// Populate the dynamic stylesheet componentElStyles with components styles
+					// if (componentElStyles) {
+					if (attr.name === 'data-dummycompstyle') {
+						const rule = `[data-component="${part.attrValue}"] { ${attr.value} }`;
+						componentElStyles.setRule(rule, part.attrValue);
+					} else if (attr.name.startsWith('data-dummycompstyle-')) {
+						const pseudoClass = attr.name.slice('data-dummycompstyle-'.length);
+						const rule = `[data-component="${part.attrValue}"]:${pseudoClass} { ${attr.value} }`;
+						componentElStyles.setRule(rule, `${part.attrValue}-${pseudoClass}`);
+					}
+					// }
+				});
+				// Separately, set the number of attributes parsed on this part in the map compPartToInheritedAttrs,
+				//  signifying that for any instance of this component part, that first number of attributes are what are being inherited.
 
-        // console.log(
-        //   "SETTING compPartToInheritedAttrs",
-        //   part.attrValue,
-        //   partAttrs.map((attr) => [attr.name, attr.value]),
-        // );
-        compPartToInheritedAttrs.set(
-          part.attrValue,
-          partAttrs.map((attr) => [attr.name, attr.value]),
-        );
-      });
-    });
-  }
+				// console.log(
+				//   "SETTING compPartToInheritedAttrs",
+				//   part.attrValue,
+				//   partAttrs.map((attr) => [attr.name, attr.value]),
+				// );
+				compPartToInheritedAttrs.set(
+					part.attrValue,
+					partAttrs.map((attr) => [attr.name, attr.value])
+				);
+			});
+		});
+	}
 }
 
 export function changeElToComp(el: Element, compName: string) {
-  const [name, part] = getCompNameAndPart(compName);
-  // console.log(name, part);
-  const saved = savedComponents.find((item) => item.name === name)!;
-  // console.log(saved);
-  if (!saved.parts.split("|").includes(part))
-    throw new Error(
-      `The provided component name does not have the provided part "${part} NOT IN ${saved.parts
-        .split("|")
-        .map((str) => '"' + str + '"')
-        .join("  ")}"`,
-    );
+	const [name, part] = getCompNameAndPart(compName);
+	// console.log(name, part);
+	const saved = savedComponents.find((item) => item.name === name)!;
+	// console.log(saved);
+	if (!saved.parts.split('|').includes(part))
+		throw new Error(
+			`The provided component name does not have the provided part "${part} NOT IN ${saved.parts
+				.split('|')
+				.map((str) => '"' + str + '"')
+				.join('  ')}"`
+		);
 
-  const bodyStr = saved.content;
-  // We use decodeComponentStr() here, rather than a function like extractPartsFromCompStr() in libraryupgrade.ts,
-  //  so that we get all the same processing for component instances being added to a document as we have when adding a new node
-  //  that is an instance of a component, or any other situation. Whenever we're "inserting" a component instance into a document,
-  //  we should ALWAYS be using decodeComponentStr().
-  const decodedComp = decodeElComponentStr(bodyStr, "document");
-  const compParts = extractPartsFromElCompEls(decodedComp);
+	const bodyStr = saved.content;
+	// We use decodeComponentStr() here, rather than a function like extractPartsFromCompStr() in libraryupgrade.ts,
+	//  so that we get all the same processing for component instances being added to a document as we have when adding a new node
+	//  that is an instance of a component, or any other situation. Whenever we're "inserting" a component instance into a document,
+	//  we should ALWAYS be using decodeComponentStr().
+	const decodedComp = decodeElComponentStr(bodyStr, 'document');
+	const compParts = extractPartsFromElCompEls(decodedComp);
 
-  const partEl = compParts.find((compPart) => compPart.part === part)?.partEl;
-  if (!partEl) {
-    throw new Error(
-      `Could not find the provided part in the provided component.`,
-    );
-  }
+	const partEl = compParts.find((compPart) => compPart.part === part)?.partEl;
+	if (!partEl) {
+		throw new Error(`Could not find the provided part in the provided component.`);
+	}
 
-  // Replace the parsed children of the component part with the actual children of the element we're converting
-  while (partEl.firstChild) partEl.removeChild(partEl.firstChild);
-  while (el.firstChild) partEl.appendChild(el.firstChild);
-  // Replace element with component part in document
-  el.insertAdjacentElement("afterend", partEl);
-  el.remove();
+	// Replace the parsed children of the component part with the actual children of the element we're converting
+	while (partEl.firstChild) partEl.removeChild(partEl.firstChild);
+	while (el.firstChild) partEl.appendChild(el.firstChild);
+	// Replace element with component part in document
+	el.insertAdjacentElement('afterend', partEl);
+	el.remove();
 
-  if (selection.hover === el) selection.hover = partEl;
-  if (selection.selected.some((item) => item === el))
-    selection.selected = selection.selected.map((item) =>
-      item === el ? partEl : item,
-    );
+	if (selection.hover === el) selection.hover = partEl;
+	if (selection.selected.some((item) => item === el))
+		selection.selected = selection.selected.map((item) => (item === el ? partEl : item));
 }
 
 export function breakInheritance(els: Element[]) {
-  for (const el of els) {
-    if (!el.hasAttribute("data-component")) {
-      console.error(
-        "Called breakInheritance() with an element that's not a component",
-        el,
-      );
-      continue;
-    }
+	for (const el of els) {
+		if (!el.hasAttribute('data-component')) {
+			console.error("Called breakInheritance() with an element that's not a component", el);
+			continue;
+		}
 
-    el.removeAttribute("data-component");
-    el.removeAttribute("data-complibver");
+		el.removeAttribute('data-component');
+		el.removeAttribute('data-complibver');
 
-    // Note, these aren't currently used, but have been ideas that could be used in the future
-    el.removeAttribute("data-componentname");
+		// Note, these aren't currently used, but have been ideas that could be used in the future
+		el.removeAttribute('data-componentname');
 
-    el.removeAttribute("data-iscompcontainer");
-    el.removeAttribute("data-comppartblacklist");
+		el.removeAttribute('data-iscompcontainer');
+		el.removeAttribute('data-comppartblacklist');
 
-    Array.from(el.attributes).forEach((attr) => {
-      if (attr.name.startsWith("data-dummycompstyle")) {
-        // Put inherited styles onto element's regular style attributes
-        const otherStyleAttrName =
-          attr.name === "data-dummycompstyle"
-            ? "style"
-            : "data-style-" + attr.name.slice("data-dummycompstyle-".length);
-        const otherStyles = el.getAttribute(otherStyleAttrName) ?? "";
-        el.setAttribute(
-          otherStyleAttrName,
-          attr.value + (attr.value.endsWith(";") ? "" : ";") + otherStyles,
-        );
-        el.removeAttribute(attr.name);
-      } else if (attr.name.startsWith("data-override-")) {
-        // Remove information about attribute overrides
-        el.removeAttribute(attr.name);
-      }
-    });
+		Array.from(el.attributes).forEach((attr) => {
+			if (attr.name.startsWith('data-dummycompstyle')) {
+				// Put inherited styles onto element's regular style attributes
+				const otherStyleAttrName =
+					attr.name === 'data-dummycompstyle'
+						? 'style'
+						: 'data-style-' + attr.name.slice('data-dummycompstyle-'.length);
+				const otherStyles = el.getAttribute(otherStyleAttrName) ?? '';
+				el.setAttribute(
+					otherStyleAttrName,
+					attr.value + (attr.value.endsWith(';') ? '' : ';') + otherStyles
+				);
+				el.removeAttribute(attr.name);
+			} else if (attr.name.startsWith('data-override-')) {
+				// Remove information about attribute overrides
+				el.removeAttribute(attr.name);
+			}
+		});
 
-    console.log("Disinherited element", el);
-  }
+		console.log('Disinherited element', el);
+	}
 }
 
 export function protectInheritedAttrs(el: Element) {
-  const elDataComponent = el.getAttribute("data-component");
-  if (!elDataComponent) return;
+	const elDataComponent = el.getAttribute('data-component');
+	if (!elDataComponent) return;
 
-  const protectedVals = compPartToInheritedAttrs.get(elDataComponent);
-  if (!protectedVals) {
-    console.error(
-      `compPartToInheritedAttrs didn't have entry for data-component value '${elDataComponent}'`,
-      compPartToInheritedAttrs,
-    );
-    return;
-  }
+	const protectedVals = compPartToInheritedAttrs.get(elDataComponent);
+	if (!protectedVals) {
+		console.error(
+			`compPartToInheritedAttrs didn't have entry for data-component value '${elDataComponent}'`,
+			compPartToInheritedAttrs
+		);
+		return;
+	}
 
-  // console.log("Protecting attributes", protectedVals);
+	// console.log("Protecting attributes", protectedVals);
 
-  const currentAttrs: PropsList = getAttributesRespectingMasks(el);
-  const initialAttrs = structuredClone(currentAttrs);
-  let hasChanges = false;
+	const currentAttrs: PropsList = getAttributesRespectingMasks(el);
+	const initialAttrs = structuredClone(currentAttrs);
+	let hasChanges = false;
 
-  // Protect inherited attributes & create attribute overrides where necessary
+	// Protect inherited attributes & create attribute overrides where necessary
 
-  protectedVals.forEach(([protectedName, protectedValue], protectedI) => {
-    const overrideName = `data-override-${protectedName}`;
+	protectedVals.forEach(([protectedName, protectedValue], protectedI) => {
+		const overrideName = `data-override-${protectedName}`;
 
-    const attrI = currentAttrs.findIndex(
-      ([attrName]) => attrName === protectedName,
-    );
-    const attrOverrideI = currentAttrs.findIndex(
-      ([attrName]) => attrName === overrideName,
-    );
+		const attrI = currentAttrs.findIndex(([attrName]) => attrName === protectedName);
+		const attrOverrideI = currentAttrs.findIndex(([attrName]) => attrName === overrideName);
 
-    if (attrOverrideI >= 0) {
-      if (attrOverrideI !== protectedI) {
-        // Move to correct place
-        currentAttrs.splice(attrOverrideI, 1);
-        currentAttrs.splice(protectedI, 0, [overrideName, protectedValue]);
-        hasChanges = true;
-        console.log("Moved override attribute to correct place", overrideName);
-      } else if (currentAttrs[attrOverrideI][1] !== protectedValue) {
-        // Make value correct
-        currentAttrs[attrOverrideI][1] = protectedValue;
-        hasChanges = true;
-        console.log("Corrected value of override attribute", overrideName);
-      }
-    } else {
-      const attrValue = currentAttrs[attrI]?.[1];
-      if (attrI >= 0 && attrI !== protectedI && attrValue === protectedValue) {
-        // Move attribute to correct place
-        currentAttrs.splice(attrI, 1);
-        currentAttrs.splice(protectedI, 0, [protectedName, protectedValue]);
-        hasChanges = true;
-        console.log("Moved attribute to correct place", protectedName);
-      } else if (attrI >= 0 && attrValue !== protectedValue) {
-        // Create data-override attribute in correct place; don't touch this attribute (which provides the overriding value)
-        currentAttrs.splice(protectedI, 0, [overrideName, protectedValue]);
-        hasChanges = true;
-        console.log("Created data-override for attribute", protectedName);
-      } else if (attrI === -1) {
-        // Insert in correct place
-        currentAttrs.splice(protectedI, 0, [protectedName, protectedValue]);
-        hasChanges = true;
-        console.log("Inserted attribute", protectedName);
-      }
-      // else if (attrI === protectedI && attrValue !== protectedValue) {
-      //   // Make value correct
-      //   currentAttrs[protectedI][1] = protectedValue;
-      //   hasChanges = true;
-      //   console.log("Corrected value of attribute", protectedName);
-      // }
-    }
-  });
+		if (attrOverrideI >= 0) {
+			if (attrOverrideI !== protectedI) {
+				// Move to correct place
+				currentAttrs.splice(attrOverrideI, 1);
+				currentAttrs.splice(protectedI, 0, [overrideName, protectedValue]);
+				hasChanges = true;
+				console.log('Moved override attribute to correct place', overrideName);
+			} else if (currentAttrs[attrOverrideI][1] !== protectedValue) {
+				// Make value correct
+				currentAttrs[attrOverrideI][1] = protectedValue;
+				hasChanges = true;
+				console.log('Corrected value of override attribute', overrideName);
+			}
+		} else {
+			const attrValue = currentAttrs[attrI]?.[1];
+			if (attrI >= 0 && attrI !== protectedI && attrValue === protectedValue) {
+				// Move attribute to correct place
+				currentAttrs.splice(attrI, 1);
+				currentAttrs.splice(protectedI, 0, [protectedName, protectedValue]);
+				hasChanges = true;
+				console.log('Moved attribute to correct place', protectedName);
+			} else if (attrI >= 0 && attrValue !== protectedValue) {
+				// Create data-override attribute in correct place; don't touch this attribute (which provides the overriding value)
+				currentAttrs.splice(protectedI, 0, [overrideName, protectedValue]);
+				hasChanges = true;
+				console.log('Created data-override for attribute', protectedName);
+			} else if (attrI === -1) {
+				// Insert in correct place
+				currentAttrs.splice(protectedI, 0, [protectedName, protectedValue]);
+				hasChanges = true;
+				console.log('Inserted attribute', protectedName);
+			}
+			// else if (attrI === protectedI && attrValue !== protectedValue) {
+			//   // Make value correct
+			//   currentAttrs[protectedI][1] = protectedValue;
+			//   hasChanges = true;
+			//   console.log("Corrected value of attribute", protectedName);
+			// }
+		}
+	});
 
-  // "Un-override" where applicable
+	// "Un-override" where applicable
 
-  protectedVals.forEach(([protectedName, protectedValue], protectedI) => {
-    const overrideName = `data-override-${protectedName}`;
+	protectedVals.forEach(([protectedName, protectedValue], protectedI) => {
+		const overrideName = `data-override-${protectedName}`;
 
-    const attrI = currentAttrs.findIndex(
-      ([attrName]) => attrName === protectedName,
-    );
-    const attrOverrideI = currentAttrs.findIndex(
-      ([attrName]) => attrName === overrideName,
-    );
+		const attrI = currentAttrs.findIndex(([attrName]) => attrName === protectedName);
+		const attrOverrideI = currentAttrs.findIndex(([attrName]) => attrName === overrideName);
 
-    const attrValue = currentAttrs[attrI]?.[1];
-    const overrideValue = currentAttrs[attrOverrideI]?.[1];
+		const attrValue = currentAttrs[attrI]?.[1];
+		const overrideValue = currentAttrs[attrOverrideI]?.[1];
 
-    if (attrOverrideI >= 0 && attrI === -1) {
-      // Change override to regular attribute
-      currentAttrs.splice(attrOverrideI, 1, [protectedName, protectedValue]);
-      hasChanges = true;
-      console.log("Changed override to regular attribute", protectedName);
-    }
-    // else if (attrI >= 0 && attrOverrideI >= 0 && attrValue === overrideValue) {
-    //   // Remove regular attribute and change override to regular attribute
-    // }
-  });
+		if (attrOverrideI >= 0 && attrI === -1) {
+			// Change override to regular attribute
+			currentAttrs.splice(attrOverrideI, 1, [protectedName, protectedValue]);
+			hasChanges = true;
+			console.log('Changed override to regular attribute', protectedName);
+		}
+		// else if (attrI >= 0 && attrOverrideI >= 0 && attrValue === overrideValue) {
+		//   // Remove regular attribute and change override to regular attribute
+		// }
+	});
 
-  if (hasChanges) {
-    const initialLogStr = initialAttrs
-      .map(([attrName, attrValue], i) => `(${i}) ${attrName}: "${attrValue}"`)
-      .join("\n");
-    const logStr = currentAttrs
-      .map(([attrName, attrValue], i) => `(${i}) ${attrName}: "${attrValue}"`)
-      .join("\n");
-    console.log(
-      "Changing attributes list. From:\n" +
-        initialLogStr +
-        "\n------------ To:\n" +
-        logStr,
-    );
+	if (hasChanges) {
+		const initialLogStr = initialAttrs
+			.map(([attrName, attrValue], i) => `(${i}) ${attrName}: "${attrValue}"`)
+			.join('\n');
+		const logStr = currentAttrs
+			.map(([attrName, attrValue], i) => `(${i}) ${attrName}: "${attrValue}"`)
+			.join('\n');
+		console.log(
+			'Changing attributes list. From:\n' + initialLogStr + '\n------------ To:\n' + logStr
+		);
 
-    const oldAttributes = Array.from(el.attributes);
-    // console.log("🎈🎈🎈", oldAttributes);
-    oldAttributes.forEach((oldAttr) => el.removeAttribute(oldAttr.name));
-    currentAttrs.forEach(([attrName, attrValue]) =>
-      el.setAttribute(attrName, attrValue),
-    );
-  }
+		const oldAttributes = Array.from(el.attributes);
+		// console.log("🎈🎈🎈", oldAttributes);
+		oldAttributes.forEach((oldAttr) => el.removeAttribute(oldAttr.name));
+		currentAttrs.forEach(([attrName, attrValue]) => el.setAttribute(attrName, attrValue));
+	}
 }
 
 /////////////////////////////////////////////////////
@@ -721,15 +651,15 @@ export function protectInheritedAttrs(el: Element) {
 /////////////////////////////////////////////////////
 
 export interface GetCompLibFetchReturn {
-  library: Omit<SavedComponent, "identName">[];
-  version: string;
-  upgrade_to_version: string;
-  upgrade_name_map: { [oldName: string]: string };
-  upgrade_content_list: string[];
-  upgrade_remove_list: string[];
-  upgrade_diff_msgs: {
-    version: string;
-    message: string;
-    description?: string;
-  }[];
+	library: Omit<SavedComponent, 'identName'>[];
+	version: string;
+	upgrade_to_version: string;
+	upgrade_name_map: { [oldName: string]: string };
+	upgrade_content_list: string[];
+	upgrade_remove_list: string[];
+	upgrade_diff_msgs: {
+		version: string;
+		message: string;
+		description?: string;
+	}[];
 }

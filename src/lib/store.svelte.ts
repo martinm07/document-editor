@@ -1,29 +1,29 @@
-import { writable, type Writable } from "svelte/store";
-import { elsListConnected } from "./helper";
-import { PersistedState, useDebounce } from "runed";
-import type { CompLibUpgradeInfo } from "./components/libraryupgrade";
-import { SvelteMap } from "svelte/reactivity";
-import type { CompTypeStr } from "./components/component.svelte";
-import type { CompiledModule, LintDiagnostic } from "./svelte/compiler";
+import { writable, type Writable } from 'svelte/store';
+import { elsListConnected } from './helper';
+import { PersistedState, useDebounce } from 'runed';
+import type { CompLibUpgradeInfo } from './components/libraryupgrade';
+import { SvelteMap } from 'svelte/reactivity';
+import type { CompTypeStr } from './components/component.svelte';
+import type { CompiledModule, LintDiagnostic } from './svelte/compiler';
 
-type CursorMode = "select" | "edit" | "add" | "move" | "noselect";
+type CursorMode = 'select' | 'edit' | 'add' | 'move' | 'noselect';
 type SidebarMode =
-  | "edit"
-  | "addcomponent"
-  | "changetocomponent"
-  | "viewcomponent"
-  | "viewer"
-  | "styles"
-  | "stylesadd";
-type DropdownMode = "docmetaedit" | "compmetaedit" | "mediatray" | "none";
+	| 'edit'
+	| 'addcomponent'
+	| 'changetocomponent'
+	| 'viewcomponent'
+	| 'viewer'
+	| 'styles'
+	| 'stylesadd';
+type DropdownMode = 'docmetaedit' | 'compmetaedit' | 'mediatray' | 'none';
 
 class Mode {
-  cursor: CursorMode = $state("select");
-  sidebar: SidebarMode = $state("edit");
-  dropdown: DropdownMode = $state("none");
-  disabled: boolean = $state(false);
-  inCompLibUpgrade: boolean = $state(false);
-  // compType: CompTypeStr | null = $derived(comps.current.type ?? null);
+	cursor: CursorMode = $state('select');
+	sidebar: SidebarMode = $state('edit');
+	dropdown: DropdownMode = $state('none');
+	disabled: boolean = $state(false);
+	inCompLibUpgrade: boolean = $state(false);
+	// compType: CompTypeStr | null = $derived(comps.current.type ?? null);
 }
 export const mode = new Mode();
 
@@ -32,142 +32,129 @@ export const mode = new Mode();
 // export const
 
 class Selection {
-  hover: Element | undefined = $state();
-  selected: Element[] = $state([]);
-  island: Element[] = $derived(elsListConnected(this.selected));
-  main: Element[] = $derived(
-    this.selected.length === 0
-      ? this.hover
-        ? [this.hover]
-        : []
-      : this.selected,
-  );
+	hover: Element | undefined = $state();
+	selected: Element[] = $state([]);
+	island: Element[] = $derived(elsListConnected(this.selected));
+	main: Element[] = $derived(
+		this.selected.length === 0 ? (this.hover ? [this.hover] : []) : this.selected
+	);
 }
 export const selection = new Selection();
 
 /////////////////////////////////////////// AUTOCOMPLETE
 
-type AutocompleteMode =
-  "css" | "attributes" | "tag" | "component" | "doctag" | null;
+type AutocompleteMode = 'css' | 'attributes' | 'tag' | 'component' | 'doctag' | null;
 export const autocompleteMode: Writable<AutocompleteMode> = writable(null);
 export const autocompleteSuggestions: Writable<string[]> = writable([]);
 
 /////////////////////////////////////////// ATTRIBUTE MASKING
 
 export interface MaskAttribute {
-  name: string;
-  value?: string | null;
-  affectedEls: [Element, string | null | undefined][];
+	name: string;
+	value?: string | null;
+	affectedEls: [Element, string | null | undefined][];
 }
 export const maskedAttributes: MaskAttribute[] = [];
 
 /////////////////////////////////////////// DOCUMENT INFO
 
 export interface DocumentInfo {
-  id: string;
+	id: string;
 
-  title: string;
-  description: string;
-  tags: string[];
-  accent: string;
-  thumbnail: string;
+	title: string;
+	description: string;
+	tags: string[];
+	accent: string;
+	thumbnail: string;
 
-  // status: "featured" | "public" | "unlisted" | "private";
-  status: string;
+	// status: "featured" | "public" | "unlisted" | "private";
+	status: string;
 
-  // body: string;
-  componentLibVer: string;
+	// body: string;
+	componentLibVer: string;
 }
 
 export type TDocMetaFields =
-  | "id"
-  | "title"
-  | "description"
-  | "tags"
-  | "accent"
-  | "thumbnail"
-  | "status"
-  | "componentLibVer";
+	'id' | 'title' | 'description' | 'tags' | 'accent' | 'thumbnail' | 'status' | 'componentLibVer';
 
 export const docMetaFields = [
-  "id",
-  "title",
-  "description",
-  "tags",
-  "accent",
-  "thumbnail",
-  "status",
-  "componentLibVer",
+	'id',
+	'title',
+	'description',
+	'tags',
+	'accent',
+	'thumbnail',
+	'status',
+	'componentLibVer'
 ];
 
 export interface DocCSSRule {
-  selector: string;
-  declarations: string;
-  compInheritance: string | null;
-  invalid?: boolean;
+	selector: string;
+	declarations: string;
+	compInheritance: string | null;
+	invalid?: boolean;
 }
 
 interface DocSvelteMountSuccess {
-  status: "success";
-  moduleExports: CompiledModule["moduleExports"];
-  props: () => CompiledModule["props"];
-  unmount: () => void;
-  mountSourceEl: Element;
-  mountPreviewStartMarker: Comment;
-  mountPreviewEndMarker: Comment;
-  id: string;
-  diagnostics: LintDiagnostic[];
+	status: 'success';
+	moduleExports: CompiledModule['moduleExports'];
+	props: () => CompiledModule['props'];
+	unmount: () => void;
+	mountSourceEl: Element;
+	mountPreviewStartMarker: Comment;
+	mountPreviewEndMarker: Comment;
+	id: string;
+	diagnostics: LintDiagnostic[];
 }
 
 interface DocSvelteMountFailOrCompiling {
-  status: "building" | "error";
-  moduleExports: null;
-  props: null;
-  unmount: null;
-  mountSourceEl: Element;
-  mountPreviewStartMarker: Comment;
-  mountPreviewEndMarker: Comment;
-  id: null;
-  diagnostics: LintDiagnostic[];
+	status: 'building' | 'error';
+	moduleExports: null;
+	props: null;
+	unmount: null;
+	mountSourceEl: Element;
+	mountPreviewStartMarker: Comment;
+	mountPreviewEndMarker: Comment;
+	id: null;
+	diagnostics: LintDiagnostic[];
 }
 
-export type DocSvelteMount =
-  DocSvelteMountSuccess | DocSvelteMountFailOrCompiling;
+export type DocSvelteMount = DocSvelteMountSuccess | DocSvelteMountFailOrCompiling;
 
 export const emptyDocInfo: () => DocumentInfo = () => ({
-  id: "",
-  title: "",
-  description: "",
-  tags: [],
-  accent: "",
-  thumbnail: "",
-  status: "",
-  componentLibVer: "",
+	id: '',
+	title: '',
+	description: '',
+	tags: [],
+	accent: '',
+	thumbnail: '',
+	status: '',
+	componentLibVer: ''
 });
 
 class Doc {
-  info: DocumentInfo = $state(emptyDocInfo());
-  body: string = $state("");
-  styles: DocCSSRule[] = $state([]);
-  svelteCompMounts: DocSvelteMount[] = $state([]);
+	info: DocumentInfo = $state(emptyDocInfo());
+	body: string = $state('');
+	styles: DocCSSRule[] = $state([]);
+	svelteCompMounts: DocSvelteMount[] = $state([]);
 
-  infoFetched = $state(false);
-  is404 = $state(false);
-  // savedInfo: DocumentInfo =
+	infoFetched = $state(false);
+	is404 = $state(false);
+	// savedInfo: DocumentInfo =
 
-  resetDocInfo() {
-    this.info = emptyDocInfo();
-    this.body = "";
-    this.styles = [];
-  }
+	resetDocInfo() {
+		this.info = emptyDocInfo();
+		this.body = '';
+		this.styles = [];
+	}
 }
 
 export const doc = new Doc();
 
 interface DocumentTag {
-  name: string;
-  description: string;
-  accent: string;
+	name: string;
+	description: string;
+	accent: string;
 }
 
 export const allDocumentTags: DocumentTag[] = $state([]);
@@ -177,10 +164,10 @@ export const allDocumentTags: DocumentTag[] = $state([]);
 /////////////////////////////////////////// MEDIA TRAY
 
 export interface FileState {
-  file: File;
-  status: "idle" | "uploading" | "queued" | "failed" | "completed";
-  progress: string;
-  errMessage: string | null;
+	file: File;
+	status: 'idle' | 'uploading' | 'queued' | 'failed' | 'completed';
+	progress: string;
+	errMessage: string | null;
 }
 export const fileStates: FileState[] = $state([]);
 
@@ -191,25 +178,22 @@ export const fetchedMediaFiles: { yes: boolean } = { yes: false };
 /////////////////////////////////////////// COMPONENT LIBRARY
 
 export interface SavedComponent {
-  // id: string;
-  identName: string;
-  name: string;
-  type: CompTypeStr;
-  content: string;
-  parts: string;
-  description?: string;
-  tags?: string;
+	// id: string;
+	identName: string;
+	name: string;
+	type: CompTypeStr;
+	content: string;
+	parts: string;
+	description?: string;
+	tags?: string;
 }
 
-export type SavedComponentOptionalIdentName = Omit<
-  SavedComponent,
-  "identName"
-> & {
-  identName?: string;
+export type SavedComponentOptionalIdentName = Omit<SavedComponent, 'identName'> & {
+	identName?: string;
 };
 
 export type SavedComponentWithEdit = SavedComponent & {
-  state?: "unmodified" | "modified" | "added" | "removed";
+	state?: 'unmodified' | 'modified' | 'added' | 'removed';
 };
 
 // const savedComps_: SavedComponent[] = [
@@ -254,81 +238,72 @@ export const compPartToInheritedAttrs: Map<string, PropsList> = new SvelteMap();
 export const allComponentTags: string[] = $state([]);
 
 class CompLib {
-  latestVer: string | null = $state(null);
+	latestVer: string | null = $state(null);
 
-  isLibUpToDate: boolean = $derived(
-    doc.info.componentLibVer !== null &&
-      this.latestVer !== null &&
-      doc.info.componentLibVer === this.latestVer,
-  );
-  isVersFetched: boolean = $derived(
-    doc.info.componentLibVer !== null && this.latestVer !== null,
-  );
+	isLibUpToDate: boolean = $derived(
+		doc.info.componentLibVer !== null &&
+			this.latestVer !== null &&
+			doc.info.componentLibVer === this.latestVer
+	);
+	isVersFetched: boolean = $derived(doc.info.componentLibVer !== null && this.latestVer !== null);
 
-  upgradeInfo: CompLibUpgradeInfo | null = $state(null);
+	upgradeInfo: CompLibUpgradeInfo | null = $state(null);
 }
 export const compLib = new CompLib();
 
 interface CompLibEdit {
-  editType: "add" | "remove" | "edit";
-  identName: string;
-  name?: string;
-  type?: CompTypeStr;
-  content?: string;
-  parts?: string;
-  description?: string;
-  tags?: string;
+	editType: 'add' | 'remove' | 'edit';
+	identName: string;
+	name?: string;
+	type?: CompTypeStr;
+	content?: string;
+	parts?: string;
+	description?: string;
+	tags?: string;
 }
 
-export const compLibEdits = new PersistedState<CompLibEdit[]>(
-  "compLibEdits",
-  [],
-);
+export const compLibEdits = new PersistedState<CompLibEdit[]>('compLibEdits', []);
 
 ///////////////////////////// LOCAL SAVING
 
 interface LocalSaveDocEntry {
-  id: string;
-  lastUsed: number;
-  body: string;
-  compLibVer: string;
+	id: string;
+	lastUsed: number;
+	body: string;
+	compLibVer: string;
 }
 
 interface LocalSaveLibEntry {
-  version: string;
-  lastUsed: number;
-  comps: SavedComponent[];
-  definedTags?: string[];
+	version: string;
+	lastUsed: number;
+	comps: SavedComponent[];
+	definedTags?: string[];
 }
 
 type LocalSaveEntry = LocalSaveDocEntry | LocalSaveLibEntry;
 
-export function localSaveEntryIsDoc(
-  entry: LocalSaveEntry,
-): entry is LocalSaveDocEntry {
-  return entry.hasOwnProperty("id");
+export function localSaveEntryIsDoc(entry: LocalSaveEntry): entry is LocalSaveDocEntry {
+	return entry.hasOwnProperty('id');
 }
-export function localSaveEntryIsLib(
-  entry: LocalSaveEntry,
-): entry is LocalSaveLibEntry {
-  return entry.hasOwnProperty("version");
+export function localSaveEntryIsLib(entry: LocalSaveEntry): entry is LocalSaveLibEntry {
+	return entry.hasOwnProperty('version');
 }
 
 // 7 days
 const MAX_LOCALSAVE_ENTRY_LIFETIME = 1000 * 60 * 60 * 24 * 7;
 
 export function pruneLocalSave() {
-  // This is a value of time in milliseconds
-  const now = Date.now();
+	// This is a value of time in milliseconds
+	const now = Date.now();
 
-  Object.entries(localSave.current).forEach(([key, val]) => {
-    if (val && now - val.lastUsed > MAX_LOCALSAVE_ENTRY_LIFETIME) {
-      delete localSave.current[key];
-    }
-  });
+	Object.entries(localSave.current).forEach(([key, val]) => {
+		if (val && now - val.lastUsed > MAX_LOCALSAVE_ENTRY_LIFETIME) {
+			delete localSave.current[key];
+		}
+	});
 }
 
 type LocalSave = Partial<Record<string, LocalSaveEntry>>;
-export const localSave = new PersistedState<LocalSave>("localSave", {});
+export const localSave = new PersistedState<LocalSave>('localSave', {});
 
 export const debounceCancellables: ReturnType<typeof useDebounce>[] = [];

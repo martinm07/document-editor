@@ -84,6 +84,7 @@
 		"paneforge": "^1.0.2",
 		"runed": "^0.28.0",
 		"svelte": "^5.57.2",
-		"thememirror": "^2.0.1"
+		"thememirror": "^2.0.1",
+		"phosphor-svelte": "^3.1.1"
 	}
 }
