@@ -1,0 +1,623 @@
+<script module>
+  const LOG_PATCH_SYNC = false;
+  const LOG_DOC_HIST = true;
+  const LOG_DOC_SAVING = false;
+  const LOG_SVELTE_BUNDLING = false;
+  const DO_SERVER_SYNC = true;
+  const SVELTE_PREVIEW_IN_HISTORY = false;
+
+  let docEl: HTMLElement | undefined = $state();
+
+  const sveltePreviewCheckCache: SveltePreviewCheckCache = new Map();
+
+  export const isInSveltePreview = (node: Node | null | undefined) =>
+    isInSveltePreview_(node, {
+      cache: sveltePreviewCheckCache,
+      container: docEl,
+    });
+
+  /** Handles optimisations of the function in `helper.ts`, and has conditional handling of SVELTE_PREVIEW_IN_HISTORY. */
+  export const isNotBody = (node: Node | null | undefined) => {
+    if (closestClass(node, "not-body")) return true;
+    if (!SVELTE_PREVIEW_IN_HISTORY) return isInSveltePreview(node);
+    else return false;
+  };
+
+  export const isHistoryNotBody = (node: Node | null | undefined) => {
+    if (closestClass(node, "history-not-body")) return true;
+    if (SVELTE_PREVIEW_IN_HISTORY) return isInSveltePreview(node);
+    else return false;
+  };
+
+  export const isHistoryNotBodyContainer = (node: Node | null | undefined) => {
+    if (
+      node instanceof Element &&
+      node.classList.contains("history-not-body") &&
+      !closestClass(node?.parentNode, "history-not-body")
+    )
+      return true;
+    if (SVELTE_PREVIEW_IN_HISTORY)
+      return isInSveltePreview(node) && !isInSveltePreview(node?.parentNode);
+  };
+</script>
+
+<script lang="ts">
+  import "/shared/tailwindinit.css";
+  import "./ui/style.css";
+
+  import NodeSelect, {
+    type INodeSelect,
+  } from "./cursormodes/NodeSelect.svelte";
+  import EditText, { type IEditText } from "./cursormodes/EditText.svelte";
+  import Sidebar from "./ui/Sidebar.svelte";
+  import Topbar from "./ui/Topbar.svelte";
+  import { PersistedState, useMutationObserver, watch } from "runed";
+  import { onDestroy, setContext } from "svelte";
+
+  import { PaneGroup, Pane, PaneResizer } from "paneforge";
+
+  import {
+    mode,
+    selection,
+    autocompleteMode,
+    type SavedComponent,
+    doc,
+  } from "./store.svelte";
+  import { editorState } from "./url.svelte";
+  import AddNode, { type IAddNode } from "./cursormodes/AddNode.svelte";
+  import MultipleSelect, {
+    type IMultipleSelect,
+  } from "./cursormodes/MultipleSelect.svelte";
+  import MoveNodes from "./cursormodes/MoveNodes.svelte";
+  import { type IAttributesEditor } from "./editors/attributes/AttributesEditor.svelte";
+  import {
+    ClonedSelection,
+    closestClass,
+    DynamicGroupStylesheet,
+    DynamicStylesheet,
+    isInSveltePreview as isInSveltePreview_,
+    type SveltePreviewCheckCache,
+  } from "./helper";
+  import {
+    type DocNodeMap,
+    type StringPosNodeMap,
+    type TempMutationRecord,
+    processMutations,
+    patchMutations,
+    type DocPatch,
+  } from "./documents/docsyncing";
+  import Autocomplete from "./editors/Autocomplete.svelte";
+  import SaveChanges from "./components/SaveChanges.svelte";
+  import { HistoryManager } from "./documents/history";
+  import {
+    syncDataStyleAttrs,
+    type IAllStyleEditors,
+  } from "./editors/css/AllStyleEditors.svelte";
+  import { onKeydown } from "./documents/keyboard";
+  import { handleCollapsePrevention } from "./documents/collapseprevention";
+  import { loadDocument, loadComponent } from "./documents/docloading.svelte";
+  import { SaveDoc } from "./documents/docsaving.svelte";
+  import { on } from "svelte/events";
+  import DocMeta, { type IDocMeta } from "./documents/DocMeta.svelte";
+  import { protectInheritedAttrs } from "./components/component.svelte";
+  import DocStyles, { type IDocStyles } from "./documents/DocStyles.svelte";
+  import { comps } from "./components/libraryeditor.svelte";
+  import { SvelteCompiler } from "./svelte/compiler";
+  import { handleSvelteCompMounts } from "./svelte/sveltecomp.svelte";
+
+  let documentID = $derived(
+    editorState.mode === "document"
+      ? Number.parseInt(editorState.resourceName)
+      : null,
+  );
+  let componentID = $derived(
+    editorState.mode === "component" ? editorState.resourceName : null,
+  );
+
+  let patchSync: boolean | null = null;
+
+  watch(
+    () => documentID,
+    () => {
+      loadDocument({
+        multipleSelect,
+        docEl,
+        historyManager,
+        componentElStyles,
+        flushServerChanges: () => docSaver.flushServerChanges(),
+      });
+    },
+  );
+
+  watch(
+    () => componentID,
+    () => {
+      loadComponent({
+        multipleSelect,
+        docEl,
+        historyManager,
+        componentElStyles,
+        flushServerChanges: () => docSaver.flushServerChanges(),
+      });
+    },
+  );
+
+  setContext("getDocEl", () => docEl);
+
+  setContext("isNotBody", isNotBody);
+  setContext("isHistoryNotBody", isHistoryNotBody);
+  setContext("isHistoryNotBodyContainer", isHistoryNotBodyContainer);
+
+  let shiftPressed = $state(false);
+
+  let nodeSelect: INodeSelect | undefined = $state();
+  let multipleSelect: IMultipleSelect | undefined = $state();
+  let addNode: IAddNode | undefined = $state();
+  let docMeta: IDocMeta | undefined = $state();
+  let docStyles: IDocStyles | undefined = $state();
+
+  setContext("resetHoverTarget", () => (selection.hover = undefined));
+  setContext("updateHighlight", () => {
+    nodeSelect?.updateHighlight();
+    multipleSelect?.updateHighlights();
+  });
+  setContext("setSelection", (nodes?: Node[] | Node) => {
+    multipleSelect?.removeSelection();
+    multipleSelect?.toggleToSelection(nodes);
+  });
+  setContext("removeFromSelection", (nodes?: Node[] | Node) => {
+    let currentlySelected: Element[] = [];
+    if (Array.isArray(nodes))
+      currentlySelected = selection.selected.filter((el) => nodes.includes(el));
+    else if (nodes && nodes instanceof Element)
+      currentlySelected = selection.selected.includes(nodes) ? [nodes] : [];
+    multipleSelect?.toggleToSelection(currentlySelected);
+  });
+
+  let editText: IEditText | undefined = $state();
+  const startEdit: IEditText["startEdit"] = (e) => editText?.startEdit(e);
+  setContext("startEdit", startEdit);
+
+  let attributesEditor: IAttributesEditor | undefined = $state();
+  // IMP: The attributesEditor.startAttributeUsage method should NEVER be used -
+  //      only the function found in this "startAttributeUsage" context.
+  //      (this is to ensure that document server syncing doesn't try sync the value underneath the mask)
+  setContext(
+    "startAttributeUsage",
+    (name: string, value?: string | null, elements?: Element[]) => {
+      return (
+        attributesEditor?.startAttributeUsage(name, value, elements) ?? [
+          () => undefined,
+          () => undefined,
+        ]
+      );
+    },
+  );
+  setContext("changeElementInMasks", (oldEl: Element, newEl: Element) =>
+    attributesEditor?.changeElementInMasks(oldEl, newEl),
+  );
+
+  // This is used by AttributesEditor when it handles a call to update the user-facing value of an
+  //  attribute (e.g. "draggable" while the element is in a moveable selection).
+  setContext("syncFakeMutation", (mutation: TempMutationRecord) =>
+    collectedMutations.push(mutation),
+  );
+
+  let cssEditor: IAllStyleEditors | undefined = $state();
+
+  const docNodes: DocNodeMap = new Map();
+  const stringPosNodeMap: StringPosNodeMap = new Map();
+  let htmlStr: string;
+  let collectedMutations: TempMutationRecord[] = [];
+
+  const historyManager = new HistoryManager(
+    docNodes,
+    stringPosNodeMap,
+    () => docEl,
+    {
+      resetSelection: () => multipleSelect?.removeSelection(),
+    },
+    {
+      debug: LOG_DOC_HIST,
+    },
+  );
+  setContext("suggestCreateNewHistoryItem", () =>
+    historyManager.suggestCreateNewHistoryItem(),
+  );
+  setContext("bookmarkState", () => historyManager.bookmarkState());
+
+  // --- References to these won't stay fresh; since they're constantly being reassigned by patchMutations()
+  /** For mapping what used to be the most up-to-date node string position values, to the new up-to-date locations. */
+  let stringPosBackwardUpdateMap: Map<number, number> = new Map();
+  /** For mapping the up-to-date HTML string locations of nodes, to their locations when the document was in its previous state. */
+  let stringPosForwardUpdateMap: Map<number, number> = new Map();
+
+  // For testing purposes only
+  let debugCreateNewHistoryItem: boolean = false;
+
+  // We set useConstructedStylesheet to false in this constructor, so that we use a style tag in the document <head>.
+  // The primary reason for doing this is allowing CSS @import statements in the document styles (because they aren't allowed in constructed stylesheets;
+  //  see https://www.w3.org/TR/cssom-1/#the-cssstylesheet-interface)
+  const mainStyles = new DynamicStylesheet<number>(false);
+  onDestroy(() => mainStyles.destroy());
+  setContext("getMainStyles", () => mainStyles);
+
+  const dataStyles = new DynamicStylesheet<string>();
+  onDestroy(() => dataStyles.destroy());
+  setContext("getDataStyles", () => dataStyles);
+
+  const componentElStyles = new DynamicStylesheet<string>();
+  onDestroy(() => componentElStyles.destroy());
+  setContext("getComponentElStyles", () => componentElStyles);
+
+  const svelteCompiler = new SvelteCompiler({ debug: LOG_SVELTE_BUNDLING });
+  setContext("getSvelteCompiler", () => svelteCompiler);
+
+  const svelteCompStyles = new DynamicGroupStylesheet<string>();
+  onDestroy(() => svelteCompStyles.destroy());
+  setContext("getSvelteCompStyles", () => svelteCompStyles);
+
+  // This observer is to
+  //  1- disallow non-element nodes as direct children of docEl.
+  //      AND enforce at least one element in the document (done by handleCollapsePrevention)
+  //  2- try enfore no "collapsed" elements- that is, elements with 0 height and/or width which can't be
+  //      visually selected (done by handleCollapsePrevention).
+  //  3- clean up the document, removing unnecessary whitespace from elements that don't rely on it
+  //      to remain un-collapsed, and removing trailing <br> tags for elements (which also don't do anything
+  //      for page flow) (done by handleCollapsePrevention).
+  //  4- inform the CSS editor and Attribute editor about updates (especially those that don't originate
+  //      from interacting with said editors).
+  //  5- collect mutations, so that we can potentially make patches out of them later.
+  const { stop } = useMutationObserver(
+    () => docEl,
+    (mutations) => {
+      console.log("mutation observer triggered", mutations);
+      if (mutations.some((mutation) => mutation.type === "childList"))
+        sveltePreviewCheckCache.clear();
+
+      // (1) and (2) and (3), essentially; prevent and clean up elements/nodes that can't be interacted with
+
+      // Note, collapse prevention can mess with undo/redo, due to potential-locations.
+      // The behaviour of handleCollapsePrevention() can change depending on if there are potential-locations present,
+      //  which don't sync to the document's HTML string and hence aren't included by undo/redo. This may cause the function
+      //  to "correct" the resulting HTML document after an undo or redo, issuing a DOM mutation in the same microtask
+      //  and hence getting ignored by HistoryManager.addToHistoryStack because flagHistoryStateChange is true
+      //  (not that we'd want to lose all the history we have arbitrarily like that anyway).
+      // Anyway, we shouldn't really want collapse prevention the user is actively editing (which would they aren't "in history"- i.e.
+      //  actively undoing/redoing), so we just disable it when that's true.
+      if (!historyManager.isInHistory)
+        handleCollapsePrevention(mutations, docEl);
+
+      //// We can use this to (potentially) improve performance, with elements being checked multiple times, if necessary
+      const alreadyChecked: Set<Element> = new Set();
+
+      mutations.forEach((mutation) => {
+        [...mutation.addedNodes, ...mutation.removedNodes].forEach((node) => {
+          if (!(node instanceof Element)) return;
+
+          const walker = document.createTreeWalker(
+            node,
+            NodeFilter.SHOW_ELEMENT,
+          );
+          let current: Element | null = walker.currentNode as Element;
+          while (current) {
+            if (!alreadyChecked.has(current)) {
+              checkDataID(current);
+              // console.log("→→→ Checking data styles for element", current);
+              syncDataStyleAttrs(current, dataStyles);
+              if (!mode.disabled && editorState.mode !== "component")
+                protectInheritedAttrs(current);
+
+              alreadyChecked.add(current);
+            }
+
+            current = walker.nextNode() as Element | null;
+          }
+        });
+
+        if (mutation.type === "attributes") {
+          const el = mutation.target as Element;
+
+          if (!alreadyChecked.has(el)) {
+            checkDataID(
+              el,
+              mutation.attributeName as string,
+              mutation.oldValue as string,
+            );
+
+            syncDataStyleAttrs(
+              el,
+              dataStyles,
+              mutation.attributeName as string,
+            );
+
+            if (!mode.disabled && editorState.mode !== "component")
+              protectInheritedAttrs(el);
+
+            alreadyChecked.add(el);
+          }
+        }
+      });
+
+      handleSvelteCompMounts(mutations, {
+        getSvelteCompiler: () => svelteCompiler,
+        getSvelteCompStyles: () => svelteCompStyles,
+        svelteCompMounts: doc.svelteCompMounts,
+      });
+
+      function checkDataID(
+        el: Element,
+        modifiedAttribute?: string,
+        oldValue?: string,
+      ) {
+        if (
+          el.hasAttribute("data-id") ||
+          (modifiedAttribute && modifiedAttribute !== "data-id")
+        )
+          return;
+
+        const dataID = oldValue || crypto.randomUUID();
+        // console.log("Setting data ID of element", el, dataID);
+        el.setAttribute("data-id", dataID);
+      }
+
+      // 4) inform the CSS editor and Attribute editor about updates
+      const styleMutationTargets = mutations
+        .filter(
+          (mutation) =>
+            mutation.type === "attributes" &&
+            (mutation.attributeName === "style" ||
+              mutation.attributeName?.startsWith("data-style-")),
+        )
+        .map((mutation) => mutation.target);
+      const attributeMutationTargets = mutations
+        .filter((mutation) => mutation.type === "attributes")
+        .map((mutation) => mutation.target);
+
+      cssEditor?.syncElementInlineStyles(styleMutationTargets);
+      attributesEditor?.syncElementAttributes(attributeMutationTargets);
+
+      // 5) collect mutations for further processing at the end of the event cycle
+      // This lets us have certain expectations when creating patches, such as
+      //  "if we encounter an element not connected to the DOM, then some mutation in the provided set removes it"
+      //   -> Theoretically, this should only be relevant when within this MutationObserver callback we remove the node.
+      //      As otherwise, the mutations ARE grouped together.
+      const processed = processMutations(mutations);
+      collectedMutations.push(...processed);
+
+      // We use a setTimeout, to guarantee that Svelte has time to reflect changes from doc.info into the document-meta-data elements of DocMeta.svelte,
+      //  BEFORE this function calls to reflect the changes in the document-meta-data into doc.info
+      // setTimeout(() => docMeta?.informMetaUpdate(processed));
+
+      docMeta?.informMetaUpdate(processed);
+      docStyles?.informStyleUpdate(processed);
+    },
+    {
+      subtree: true,
+      attributes: true,
+      attributeOldValue: true,
+      characterDataOldValue: true,
+      characterData: true,
+      childList: true,
+    },
+  );
+  onDestroy(stop);
+
+  // TODO: Replacement?
+  // watch(
+  //   () => comps.lib.find((comp) => comp.identName === componentID)?.name,
+  //   (current, prev) => {
+  //     if (current !== prev) updateCompEditContent();
+  //   },
+  // );
+
+  function createPatches() {
+    if (!docEl) throw new Error("docEl not defined.");
+    return patchMutations(
+      collectedMutations,
+      {
+        docNodes,
+        stringPosNodeMap,
+        stringPosForwardUpdateMap,
+        stringPosBackwardUpdateMap,
+        docContainer: docEl,
+      },
+      {
+        updateHTMLStr: htmlStr,
+        debug: LOG_PATCH_SYNC,
+      },
+    );
+  }
+
+  const docSaver = new SaveDoc({
+    makePatches: createPatches,
+    getDocEl: () => docEl,
+    docNodes,
+    stringPosNodeMap,
+    doServerSync: DO_SERVER_SYNC,
+    debug: LOG_DOC_SAVING,
+  });
+
+  const patchInterval = setInterval(() => {
+    if (!docEl || collectedMutations.length === 0) return;
+
+    if (LOG_PATCH_SYNC)
+      console.groupCollapsed(
+        `Patch syncing ${collectedMutations.length} mutations:`,
+        [...collectedMutations],
+      );
+
+    let patches: DocPatch[];
+    [patches, stringPosForwardUpdateMap, stringPosBackwardUpdateMap, htmlStr] =
+      docSaver.save();
+
+    if (LOG_PATCH_SYNC) {
+      const docNodesTemp: DocNodeMap = new Map();
+      docNodes.forEach((val, key) => docNodesTemp.set(key, { ...val }));
+      console.log(docNodesTemp);
+
+      console.log(htmlStr);
+      console.groupEnd();
+    }
+
+    if (debugCreateNewHistoryItem) {
+      historyManager.suggestCreateNewHistoryItem();
+    }
+
+    // Send DOM patches to the document history stack for undo/redo
+    [stringPosForwardUpdateMap] = historyManager.addToHistoryStack(
+      patches.map((patch) => patch.dom),
+      stringPosForwardUpdateMap,
+      stringPosBackwardUpdateMap,
+    );
+    historyManager.resetFlagsAndClaims();
+
+    if (LOG_DOC_HIST) {
+      console.log("🎈 docHistory: ", structuredClone(historyManager.hist));
+      const posNodeMapCopy: typeof stringPosNodeMap = new Map();
+      stringPosNodeMap.forEach((val, key) => posNodeMapCopy.set(key, val));
+      console.log("🎈 posNodes: ", posNodeMapCopy);
+      console.groupEnd();
+    }
+
+    if (debugCreateNewHistoryItem)
+      console.log("⚠ debugCreateNewHistoryItem IS NOW", false);
+    debugCreateNewHistoryItem = false;
+
+    collectedMutations = [];
+  });
+
+  onDestroy(() => clearInterval(patchInterval));
+  onDestroy(() => docSaver.flushServerChanges());
+  on(document, "visibilitychange", () => {
+    if (document.hidden) docSaver.flushServerChanges();
+  });
+  setContext("flushServerChanges", () => docSaver.flushServerChanges());
+
+  let currentSelection: ClonedSelection | null = null;
+  let prevSelection: ClonedSelection | null = null;
+  setContext("getPrevSelection", () => prevSelection);
+</script>
+
+<svelte:window
+  onkeydown={(e) => {
+    if (e.key === "Shift") shiftPressed = true;
+    onKeydown(e, {
+      multipleSelect,
+      editText,
+      addNode,
+      historyManager,
+      htmlStr,
+      docEl,
+    });
+  }}
+  onkeyup={(e) => {
+    if (e.key === "Shift") shiftPressed = false;
+  }}
+/>
+<svelte:document
+  onselectionchange={(e) => {
+    prevSelection = currentSelection;
+    const caret = getSelection();
+    currentSelection = caret ? new ClonedSelection(caret) : null;
+  }}
+/>
+
+<PaneGroup
+  direction="horizontal"
+  class="h-screen! relative"
+  autoSaveId="editor-horizontal-pane-sizes"
+>
+  <Pane>
+    <PaneGroup
+      direction="vertical"
+      autoSaveId="editor-sidebar-vertical-pane-sizes"
+    >
+      <Pane
+        class="border-r-2 border-rock-300 bg-background"
+        style="scrollbar-color: var(--rock-100) var(--background);"
+      >
+        <div class="overflow-y-scroll h-full">
+          <div
+            class="h-fit relative p-2 [.svelte-editor]:h-full [.svelte-editor]:flex"
+            class:svelte-editor={comps.current.type === "svelte" &&
+              mode.sidebar === "edit"}
+          >
+            <Sidebar bind:attributesEditor bind:cssEditor />
+          </div>
+        </div>
+      </Pane>
+      <PaneResizer class="h-2 bg-background border-r-2 border-rock-300" />
+      <Pane
+        style="scrollbar-color: #cdcdcd var(--rock-50);"
+        class="bg-rock-50 border-r-2 border-t-2 border-rock-300 {comps.current
+          .type === 'svelte' ||
+        (mode.sidebar !== 'edit' && mode.sidebar !== 'styles')
+          ? 'hidden'
+          : ''}"
+      >
+        <div class="overflow-y-scroll h-full">
+          <div
+            class="h-fit min-h-full flex items-center justify-center"
+            class:hidden={!$autocompleteMode}
+          >
+            <Autocomplete />
+          </div>
+        </div>
+        <div
+          class="h-fit min-h-full flex items-center justify-center"
+          class:hidden={$autocompleteMode}
+        >
+          Keyboard shortcuts here :)
+        </div>
+      </Pane>
+    </PaneGroup>
+  </Pane>
+  <PaneResizer
+    data-direction="horizontal"
+    class="w-0 after:content-[''] after:absolute after:h-full after:w-2 after:-translate-x-1"
+  />
+  <Pane class="flex flex-col">
+    <div
+      class="topbar h-12 shrink-0 flex relative border-b-2 border-rock-300 bg-rock-50 bg-opacity-85"
+    >
+      <Topbar />
+    </div>
+    <div class="flex grow justify-center relative z-0 overflow-auto">
+      {#if docEl}
+        <EditText bind:this={editText} {docEl} />
+        <NodeSelect {shiftPressed} bind:this={nodeSelect} />
+        <MultipleSelect bind:this={multipleSelect} />
+        <AddNode bind:this={addNode} />
+        <MoveNodes />
+      {/if}
+
+      <div class="relative h-fit w-full flex justify-center">
+        <!-- The document itself should have a single containing element, that can have the styles
+                 width: min(75%, 600px); margin: 0 auto;
+             for example. -->
+        <div class="doc w-full" bind:this={docEl}>
+          <DocMeta {docEl} {docSaver} bind:this={docMeta} />
+          <DocStyles {docSaver} bind:this={docStyles} />
+          <div class="w-3/4 max-w-[600px] mx-auto">Loading document...</div>
+        </div>
+      </div>
+    </div>
+  </Pane>
+</PaneGroup>
+
+<SaveChanges />
+
+{#if doc.is404}
+  <div
+    class="fixed flex bottom-3 right-3 bg-orange-200 rounded px-4 py-2 text-orange-800 text-lg/6 font-bold"
+  >
+    <div class="mr-1">!!!</div>
+    <div>
+      This document (ID {doc.info.id}) does not exist on the server.<br />
+      <span class="italic font-normal text-base"
+        >Changes will be saved locally, but can't be saved on the server.</span
+      >
+    </div>
+  </div>
+{/if}

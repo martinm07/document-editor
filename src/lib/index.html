@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/static/shared/img/apple-touch-icon.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="/static/shared/img/favicon-32x32.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="16x16"
+      href="/static/shared/img/favicon-16x16.png"
+    />
+    <link rel="manifest" href="static/shared/site.webmanifest" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Edit Guidance Document | Gabor Molnar Engineering</title>
+  </head>
+  <body>
+    <div id="app" style="position: relative"></div>
+    <input id="flask-server" type="hidden" value="%VITE_DEV_FLASK_SERVER%" />
+    <script>
+      globalThis.jinjaParsed = false;
+      globalThis.urlRoot = document.getElementById("flask-server").value;
+      try {
+        if (!Number.parseInt("{{ 1 }}"))
+          throw new Error("Jinja wasn't parsed.");
+        globalThis.jinjaParsed = true;
+        globalThis.urlRoot =
+          "{{ url_for(request.endpoint, id=document_or_component_id).split('/')[0] + '/' }}";
+
+        globalThis.csrfToken = "{{ csrf_token() }}";
+      } catch {}
+    </script>
+    <script
+      type="module"
+      src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"
+    ></script>
+    <script
+      nomodule
+      src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"
+    ></script>
+    <script type="module" src="./main.ts"></script>
+
+    <!-- IFrameResizer -->
+    <script src="https://cdn.jsdelivr.net/npm/@iframe-resizer/parent"></script>
+    <script>
+      // TODO: This timeout is still susceptible to activating too early,
+      //  before the doc element is created (nevermind that it may also be too late
+      //  to catch the initial load of content into the doc0).
+      setTimeout(() => {
+        const targetEl = document.querySelector(".doc");
+        console.log(targetEl);
+        const config = { childList: true, subtree: true };
+        let iframe_uuid = 0;
+        const callback = (mutations) => {
+          for (const mutation of mutations) {
+            for (const node of mutation.addedNodes) {
+              if (node instanceof HTMLElement && node.nodeName === "IFRAME") {
+                if (node.id === "") node.id = `iframe-${iframe_uuid++}`;
+                console.log("MAKING IFRAME FIT CONTENT", node, node.id);
+                iframeResize(
+                  {
+                    license: "GPLv3",
+                    waitForLoad: true,
+                    checkOrigin: false,
+                    direction: "vertical",
+                  },
+                  node,
+                );
+              }
+            }
+          }
+        };
+        const observer = new MutationObserver(callback);
+        observer.observe(targetEl, config);
+      }, 1000);
+    </script>
+  </body>
+</html>
