@@ -1,3 +1,25 @@
-<h1>Welcome to your library project</h1>
-<p>Create your package using @sveltejs/package and preview/showcase your work with SvelteKit</p>
-<p>Visit <a href="https://svelte.dev/docs/kit">svelte.dev/docs/kit</a> to read the documentation</p>
+<script lang="ts">
+	import { DocumentEditor, type EditorState } from '#lib';
+
+	const editorState: EditorState = $state({
+		mode: 'document',
+		resourceName: '1',
+		documentRedirect: null
+	});
+</script>
+
+<DocumentEditor
+	{editorState}
+	metaPropNames={{}}
+	doChangePage={() => undefined}
+	doFullSync={() => undefined}
+	doPatchSync={() => undefined}
+	doMediaUpload={() => ({ cancelUpload: () => undefined, getFilepath: () => '' })}
+	doMediaRemove={() => undefined}
+	doPublish={() => undefined}
+	doCompLibUpdate={() => undefined}
+	getDoc={() => ({ id: '1', body: '', stylesheet: '', compLibVer: '' })}
+	getLatestCompLibVersion={() => ''}
+	getCompLib={() => []}
+	getAllUploadedMedia={() => []}
+/>
