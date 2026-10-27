@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { onDestroy, getContext } from 'svelte';
-	import { autocompleteSuggestions, selection } from '../../store.svelte';
-	import { calculateTotalOffset, findNodeFromOffset } from '../css/CSSEditor.svelte';
-	import tagAttributes from './../attributes/tag_attributes.json';
 	import { on } from 'svelte/events';
 	import { watch } from 'runed';
-	import { request2AnimationFrames } from '/shared/helper';
+
+	import { autocompleteSuggestions, selection } from '../../store.svelte.js';
+	import { calculateTotalOffset, findNodeFromOffset } from '../css/CSSEditor.svelte';
+	import tagAttributes from './../attributes/tag_attributes.json';
 
 	interface Props {
 		selected: Element[];
@@ -175,7 +175,7 @@
 	onkeydown={onKeydown}
 	contenteditable="true"
 	class:invalid={!tagNameURL}
-	class="tagname-display bg-steel-100 text-rock-700 ring-steel-300/50 rounded p-2 font-mono text-lg font-bold focus:ring-2 focus:outline-none"
+	class="tagname-display rounded bg-steel-100 p-2 font-mono text-lg font-bold text-rock-700 ring-steel-300/50 focus:ring-2 focus:outline-none"
 	role="textbox"
 	spellcheck="false"
 	tabindex="0"
@@ -186,7 +186,7 @@
 	target="_blank"
 	class:disabled={!tagNameURL}
 	aria-disabled={!tagNameURL}
-	class="text-rock-700 ml-1 inline-block text-xl hover:opacity-60 [.disabled]:pointer-events-none [.disabled]:opacity-50"
+	class="ml-1 inline-block text-xl text-rock-700 hover:opacity-60 [.disabled]:pointer-events-none [.disabled]:opacity-50"
 	tabindex={!tagNameURL ? -1 : 0}
 	aria-label="Open MDN link"
 >
@@ -194,7 +194,7 @@
 </a>
 <div class="mt-3">
 	<button
-		class="text-rock-600 ring-rock-600/10 -ml-5 cursor-pointer rounded px-2 py-1 text-lg underline ring-4 hover:no-underline [.disabled]:cursor-default [.disabled]:no-underline [.disabled]:opacity-50"
+		class="-ml-5 cursor-pointer rounded px-2 py-1 text-lg text-rock-600 underline ring-4 ring-rock-600/10 hover:no-underline [.disabled]:cursor-default [.disabled]:no-underline [.disabled]:opacity-50"
 		class:disabled={!tagNameURL}
 		class:hidden={!inputValDifferent}
 		onclick={changeTagNames}>Confirm change</button

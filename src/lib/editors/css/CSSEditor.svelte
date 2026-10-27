@@ -198,13 +198,13 @@
 </script>
 
 <script lang="ts">
-	import MDNLinks from './mdn_links.json';
 	import { onDestroy, getContext } from 'svelte';
 	import { on } from 'svelte/events';
 	import { watch } from 'runed';
-	import { autocompleteSuggestions } from '../../store.svelte';
-	import { getCSSProps, splitStringAtChar, allowedPropNames } from './handlecss';
-	import { ClonedSelection, closest, insertAfter } from '../../helper';
+	import MDNLinks from './mdn_links.json';
+	import { autocompleteSuggestions } from '../../store.svelte.js';
+	import { getCSSProps, splitStringAtChar, allowedPropNames } from './handlecss.js';
+	import { ClonedSelection, closest, insertAfter } from '../../helper.js';
 	import { attrNameToStatesToForce, type StyleCache } from './AllStyleEditors.svelte';
 
 	let styles = $state('');
@@ -794,7 +794,7 @@
 		beforeInputFindRemovedColons(e);
 	}}
 	onkeydown={onKeydown}
-	class="styles-display text-rock-700 bg-steel-100 ring-steel-300/50 inline-block rounded p-2 text-left font-mono text-sm focus:ring-2 focus:outline-none"
+	class="styles-display inline-block rounded bg-steel-100 p-2 text-left font-mono text-sm text-rock-700 ring-steel-300/50 focus:ring-2 focus:outline-none"
 	tabindex="0"
 	bind:textContent={
 		() => {

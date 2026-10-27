@@ -1,7 +1,7 @@
-import { closestClass, getAllTextNodes, lastChild, nextElementSibling } from '../helper';
+import { closestClass, getAllTextNodes, lastChild, nextElementSibling } from '../helper.js';
 import { isNotBody, isHistoryNotBody } from '../App.svelte';
-import { mode } from '../store.svelte';
-import { request2AnimationFrames } from '/shared/helper';
+import { mode } from '../store.svelte.js';
+import { request2AnimationFrames } from '../helper.js';
 
 function removeTextContent(node: Node) {
 	const oldText = getAllTextNodes(node).map((node_) => {

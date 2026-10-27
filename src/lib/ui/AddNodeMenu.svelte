@@ -1,28 +1,27 @@
 <script lang="ts">
-	import ComponentTray from '../components/ComponentTray.svelte';
-
-	import WrenchIcon from 'phosphor-svelte/lib/WrenchIcon';
-	import {
-		mode,
-		savedComponents,
-		selection,
-		type SavedComponent,
-		type SavedComponentWithEdit
-	} from '../store.svelte';
-	import { changePage, editorState } from '../url.svelte';
-	import { watch } from 'runed';
 	import { getContext } from 'svelte';
-	import { addCompLibVerAttrs, decodeElComponentStr } from '../components/component.svelte';
+	import { watch } from 'runed';
+	import WrenchIcon from 'phosphor-svelte/lib/WrenchIcon';
+
+	import ComponentTray from '../components/ComponentTray.svelte';
+	import { mode, savedComponents, selection, type Doc } from '../store.svelte.js';
+	import { addCompLibVerAttrs, decodeElComponentStr } from '../components/component.svelte.js';
+	import type { DocumentEditorProps } from '../App.svelte';
+	import type { Component, ComponentWithOptionalEditInfo } from '#lib/types.js';
+
+	const doc: Doc = getContext('doc');
+	const editorState: () => DocumentEditorProps['editorState'] = getContext('editorState');
+	const doChangePage: () => DocumentEditorProps['doChangePage'] = getContext('doChangePage');
 
 	const removeFromSelection: (nodes?: Node[] | Node) => void = getContext('removeFromSelection');
 	const setSelection: (nodes?: Node[] | Node) => void = getContext('setSelection');
 
-	function addComponent(comp: SavedComponent) {
-		if (editorState.mode !== 'document') return;
+	function addComponent(comp: Component) {
+		if (editorState().mode !== 'document') return;
 
 		if (comp.type === 'element') {
 			const componentFrag = decodeElComponentStr(comp.content, 'document');
-			addCompLibVerAttrs(componentFrag);
+			addCompLibVerAttrs(componentFrag, doc);
 			const topLevel = Array(...componentFrag.childNodes);
 
 			selection.selected[0].replaceWith(componentFrag);
@@ -46,9 +45,18 @@
 		}
 	}
 
-	function selectComponentEdit(comp: SavedComponentWithEdit) {
-		if (editorState.mode !== 'document') return;
-		changePage('component', comp.identName, editorState.resourceName);
+	// function selectComponentEdit(comp: SavedComponentWithEdit) {
+	// 	if (editorState.mode !== 'document') return;
+	// 	changePage('component', comp.identName, editorState.resourceName);
+	// }
+	function selectComponentEdit(comp: ComponentWithOptionalEditInfo) {
+		if (editorState().mode !== 'document') return;
+
+		doChangePage()({
+			mode: 'component',
+			resourceName: comp.identName ?? comp.name,
+			documentRedirect: editorState().resourceName
+		});
 	}
 
 	// When the selection changes while we are adding a new node,
@@ -74,12 +82,12 @@
 	});
 </script>
 
-{#if editorState.mode === 'document' && mode.sidebar === 'addcomponent'}
+{#if editorState().mode === 'document' && mode.sidebar === 'addcomponent'}
 	<div class="mt-3 mb-8 text-center">
 		{let createEmptyBtnFocused = $state(false)}
 		<button
 			type="button"
-			class="create-empty-node border-rock-400 text-rock-600 bg-rock-100 hover:bg-rock-200 ring-rock-200 relative rounded border-2 px-3 py-2 text-lg shadow-inner shadow-white focus:ring-4 focus:outline-none"
+			class="create-empty-node relative rounded border-2 border-rock-400 bg-rock-100 px-3 py-2 text-lg text-rock-600 shadow-inner shadow-white ring-rock-200 hover:bg-rock-200 focus:ring-4 focus:outline-none"
 			onclick={() => {
 				// There should only be one selected element, nonetheless we use forEach for reliability's sake
 				selection.main.forEach((el) => {
@@ -93,7 +101,7 @@
 			onfocusout={() => (createEmptyBtnFocused = false)}
 			>Create Empty Node
 			<span
-				class="text-rock-400 absolute right-0 bottom-0 translate-y-full text-sm italic"
+				class="absolute right-0 bottom-0 translate-y-full text-sm text-rock-400 italic"
 				class:hidden={!createEmptyBtnFocused}>(press enter)</span
 			></button
 		>

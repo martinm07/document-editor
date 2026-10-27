@@ -97,17 +97,19 @@
 </script>
 
 <script lang="ts">
-	import { watch } from 'runed';
-
-	import { doc, type DocCSSRule } from '../store.svelte';
-	import { type TempMutationRecord } from './docsyncing';
-	import { type SaveDoc } from './docsaving.svelte';
-	import { deepEqual, DynamicStylesheet } from '../helper';
-	import { encode } from 'he';
 	import { getContext } from 'svelte';
-
+	import { watch } from 'runed';
+	import { encode } from 'he';
 	import * as csstree from 'css-tree';
-	import { editorState } from '../url.svelte';
+
+	import { type Doc, type DocCSSRule } from '../store.svelte.js';
+	import { type TempMutationRecord } from './docsyncing.js';
+	import { type SaveDoc } from './docsaving.svelte.js';
+	import { deepEqual, DynamicStylesheet } from '../helper.js';
+	import type { DocumentEditorProps } from '../App.svelte';
+
+	const doc: Doc = getContext('doc');
+	const editorState: () => DocumentEditorProps['editorState'] = getContext('editorState');
 
 	const getMainStyles: () => DynamicStylesheet<number> = getContext('getMainStyles');
 
@@ -269,11 +271,11 @@
 
 			///////////// DO THE SERVER SYNC
 
-			if (editorState.mode === 'document') {
+			if (editorState().mode === 'document') {
 				const stylesheetStr = curr
 					.map((rule) => generateRuleString(rule.selector, rule.declarations, rule.compInheritance))
 					.join('\n');
-				docSaver.syncDocStylesDebounce(stylesheetStr);
+				docSaver.syncDocStylesDebounce(editorState().resourceName, stylesheetStr);
 			}
 
 			///////////// UPDATE THE EDITOR STYLESHEETS

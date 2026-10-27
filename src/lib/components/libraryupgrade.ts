@@ -1,5 +1,7 @@
-import { parseStylesheetStr } from '../documents/DocStyles.svelte';
-import { doc, mode, type SavedComponent } from '../store.svelte';
+import type { Doc } from '../store.svelte.js';
+import type { Component } from '#lib/types.js';
+// import { parseStylesheetStr } from '../documents/DocStyles.svelte';
+// import { mode } from '../store.svelte';
 import {
 	addCompLibVerAttrs,
 	breakInheritance,
@@ -118,7 +120,7 @@ const findElCompPartEdits = (oldBodyStr: string, newBodyStr: string): EditElComp
 	return final;
 };
 
-type ComponentFields = Omit<SavedComponent, 'identName'>;
+// type ComponentFields = Omit<SavedComponent, 'identName'>;
 
 interface EditedElCompInfo {
 	// old: ComponentFields;
@@ -140,8 +142,8 @@ interface EditedElCompInfo {
  *     specifying further information about how edits to the component body string have added or removed component parts.
  */
 const createElCompLibDiff = (
-	oldCompLib: ComponentFields[],
-	newCompLib: ComponentFields[],
+	oldCompLib: Component[],
+	newCompLib: Component[],
 	info: CompLibUpgradeInfo
 ): [removedComps: string[], editedComps: EditedElCompInfo[]] => {
 	/** List of (old) component names for components that have been removed in the new component library. */
@@ -263,6 +265,7 @@ const handleEditedElCompParts = (
 
 const handleAddedElCompParts = (
 	docContainer: HTMLElement,
+	doc: Doc,
 	addedCompParts: AddedElCompPartInfo[]
 ) => {
 	const walker = document.createTreeWalker(docContainer, NodeFilter.SHOW_ELEMENT);
@@ -307,7 +310,7 @@ const handleAddedElCompParts = (
 			if (targetDataComponent !== dataComponent) continue;
 
 			const bodyFrag = decodeElComponentStr(addInfo.bodyStr, 'document');
-			addCompLibVerAttrs(bodyFrag);
+			addCompLibVerAttrs(bodyFrag, doc);
 
 			const body = bodyFrag.childNodes[0];
 			// prettier-ignore
@@ -452,8 +455,8 @@ const findStyleCompChanges = (
 };
 
 const createStyleCompLibDiff = (
-	oldCompLib: ComponentFields[],
-	newCompLib: ComponentFields[],
+	oldCompLib: Component[],
+	newCompLib: Component[],
 	info: CompLibUpgradeInfo
 ): [removedComps: string[], editedComps: EditedStyleCompInfo[]] => {
 	const removedComps: string[] = [];
@@ -488,7 +491,7 @@ const createStyleCompLibDiff = (
 	return [removedComps, editedComps];
 };
 
-const handleRemovedStyleComponents = (docStyles: typeof doc.styles, compNames: string[]) => {
+const handleRemovedStyleComponents = (docStyles: Doc['styles'], compNames: string[]) => {
 	docStyles.forEach((rule) => {
 		if (!rule.compInheritance) return;
 		const [name, part] = getCompNameAndPart(rule.compInheritance);
@@ -503,7 +506,7 @@ const handleRemovedStyleComponents = (docStyles: typeof doc.styles, compNames: s
 	});
 };
 
-const handleRemovedStyleCompParts = (docStyles: typeof doc.styles, partKeys: string[]) => {
+const handleRemovedStyleCompParts = (docStyles: Doc['styles'], partKeys: string[]) => {
 	for (let i = docStyles.length - 1; i >= 0; i--) {
 		const rule = docStyles[i];
 		if (rule.compInheritance && partKeys.includes(rule.compInheritance)) {
@@ -515,7 +518,7 @@ const handleRemovedStyleCompParts = (docStyles: typeof doc.styles, partKeys: str
 };
 
 const handleEditedStyleCompParts = (
-	docStyles: typeof doc.styles,
+	docStyles: Doc['styles'],
 	compPartEdits: EditStyleCompPartInfo[]
 ) => {
 	docStyles.forEach((rule) => {
@@ -533,7 +536,7 @@ const handleEditedStyleCompParts = (
 };
 
 const handleAddedStyleCompParts = (
-	docStyles: typeof doc.styles,
+	docStyles: Doc['styles'],
 	addedCompParts: AddedStyleCompPartInfo[]
 ) => {
 	addedCompParts
@@ -599,8 +602,8 @@ interface EditedSvelteCompInfo {
 }
 
 const createSvelteCompLibDiff = (
-	oldCompLib: ComponentFields[],
-	newCompLib: ComponentFields[],
+	oldCompLib: Component[],
+	newCompLib: Component[],
 	info: CompLibUpgradeInfo
 ): [removedComps: string[], editedComps: EditedSvelteCompInfo[]] => {
 	const removedComps: string[] = [];
@@ -688,8 +691,9 @@ const handleEditedSvelteComponents = (
 
 export function upgradeDoc(
 	docContainer: HTMLElement,
-	oldCompLib: ComponentFields[],
-	newCompLib: ComponentFields[],
+	doc: Doc,
+	oldCompLib: Component[],
+	newCompLib: Component[],
 	info: CompLibUpgradeInfo
 ) {
 	console.log('======================= Performing component library upgrade on document');
@@ -724,6 +728,7 @@ export function upgradeDoc(
 	// Add newly added component parts (editedComps.addedParts)
 	handleAddedElCompParts(
 		docContainer,
+		doc,
 		editedElComps.flatMap((edit) => edit.addedParts)
 	);
 

@@ -1,19 +1,17 @@
 <script lang="ts">
-	import ComponentTray from '../components/ComponentTray.svelte';
-
+	import { getContext } from 'svelte';
 	import WrenchIcon from 'phosphor-svelte/lib/WrenchIcon';
-	import {
-		compPartToInheritedAttrs,
-		mode,
-		savedComponents,
-		selection,
-		type SavedComponent,
-		type SavedComponentWithEdit
-	} from '../store.svelte';
-	import { changePage, editorState } from '../url.svelte';
-	import { changeElToComp, getCompNameAndPart } from '../components/component.svelte';
 
-	function changeToComponent(comp: SavedComponent) {
+	import ComponentTray from '../components/ComponentTray.svelte';
+	import { compPartToInheritedAttrs, mode, savedComponents, selection } from '../store.svelte.js';
+	import { changeElToComp, getCompNameAndPart } from '../components/component.svelte.js';
+	import type { DocumentEditorProps } from '../App.svelte';
+	import type { Component, ComponentWithOptionalEditInfo } from '#lib/types.js';
+
+	const editorState: () => DocumentEditorProps['editorState'] = getContext('editorState');
+	const doChangePage: () => DocumentEditorProps['doChangePage'] = getContext('doChangePage');
+
+	function changeToComponent(comp: Component) {
 		console.log('Changing to component!', $state.snapshot(comp));
 
 		selection.island.forEach((el, i) => {
@@ -22,9 +20,18 @@
 		mode.sidebar = 'edit';
 	}
 
-	function selectComponentEdit(comp: SavedComponentWithEdit) {
-		if (editorState.mode !== 'document') return;
-		changePage('component', comp.identName, editorState.resourceName);
+	// function selectComponentEdit(comp: ComponentWithEditInfo) {
+	// 	if (editorState.mode !== 'document') return;
+	// 	changePage('component', comp.identName, editorState.resourceName);
+	// }
+	function selectComponentEdit(comp: ComponentWithOptionalEditInfo) {
+		if (editorState().mode !== 'document') return;
+
+		doChangePage()({
+			mode: 'component',
+			resourceName: comp.identName ?? comp.name,
+			documentRedirect: editorState().resourceName
+		});
 	}
 
 	// TODO: Right now this behaviour is a little bit... not very useful
@@ -65,8 +72,8 @@
 	});
 </script>
 
-{#if editorState.mode === 'document' && mode.sidebar === 'changetocomponent' && selection.island.length > 0}
-	<div class="text-rock-800 mt-3 mb-8 text-center text-xl italic">
+{#if editorState().mode === 'document' && mode.sidebar === 'changetocomponent' && selection.island.length > 0}
+	<div class="mt-3 mb-8 text-center text-xl text-rock-800 italic">
 		Change selection to component
 	</div>
 	<ComponentTray

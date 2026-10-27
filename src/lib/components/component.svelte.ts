@@ -1,18 +1,29 @@
 import {
 	savedComponents,
 	selection,
-	type SavedComponent,
-	doc,
 	compPartToInheritedAttrs,
 	type PropsList,
-	type SavedComponentOptionalIdentName,
-	type DocCSSRule
-} from '../store.svelte';
-import { getElementString, reconstructHTMLString, type DocNodeMap } from '../documents/docsyncing';
-import { DynamicStylesheet, getAllChildNodes, getNodeParents, parseHTMLFragment } from '../helper';
+	type DocCSSRule,
+	type Doc
+} from '../store.svelte.js';
+import {
+	getElementString,
+	reconstructHTMLString,
+	type DocNodeMap
+} from '../documents/docsyncing.js';
+import {
+	DynamicStylesheet,
+	getAllChildNodes,
+	getNodeParents,
+	parseHTMLFragment
+} from '../helper.js';
 import { isNotBody, isHistoryNotBody, isHistoryNotBodyContainer } from '../App.svelte';
 import { getAttributesRespectingMasks } from '../editors/attributes/AttributesEditor.svelte';
 import { generateRuleString, parseStylesheetStr } from '../documents/DocStyles.svelte';
+import type { Component, ComponentType, ComponentWithParts } from '#lib/types.js';
+
+export const componentHasParts = (comp: Component): comp is ComponentWithParts =>
+	comp.type !== 'svelte';
 
 const encodeStr = (str: string) => encodeURI(str);
 const decodeStr = (str: string) => decodeURI(str);
@@ -48,45 +59,45 @@ function replaceAttrAtIndex(el: Element, index: number, name: string, value: str
 	newAttributes.forEach((attr) => el.setAttribute(attr.name, attr.value));
 }
 
-export function componentTypeToString(type: string | number) {
-	let typeNum: number;
-	if (typeof type === 'string') {
-		typeNum = Number.parseInt(type);
-	} else typeNum = type;
-	if (isNaN(typeNum)) typeNum = 0;
+// export function componentTypeToString(type: string | number): ComponentType {
+// 	let typeNum: number;
+// 	if (typeof type === 'string') {
+// 		typeNum = Number.parseInt(type);
+// 	} else typeNum = type;
+// 	if (isNaN(typeNum)) typeNum = 0;
 
-	switch (typeNum) {
-		case 0:
-			return 'element';
-		case 1:
-			return 'style';
-		case 2:
-			return 'colour';
-		case 3:
-			return 'svelte';
-		case 4:
-			return 'media';
-		default:
-			return 'element';
-	}
-}
+// 	switch (typeNum) {
+// 		case 0:
+// 			return 'element';
+// 		case 1:
+// 			return 'style';
+// 		case 2:
+// 			return 'color';
+// 		case 3:
+// 			return 'svelte';
+// 		case 4:
+// 			return 'media';
+// 		default:
+// 			return 'element';
+// 	}
+// }
 
-export type CompTypeStr = ReturnType<typeof componentTypeToString>;
+// export type CompTypeStr = ReturnType<typeof componentTypeToString>;
 
-export function componentTypeStrToNum(typeStr: CompTypeStr) {
-	switch (typeStr) {
-		case 'element':
-			return '0';
-		case 'style':
-			return '1';
-		case 'colour':
-			return '2';
-		case 'svelte':
-			return '3';
-		case 'media':
-			return '4';
-	}
-}
+// export function componentTypeStrToNum(typeStr: ComponentType) {
+// 	switch (typeStr) {
+// 		case 'element':
+// 			return '0';
+// 		case 'style':
+// 			return '1';
+// 		case 'color':
+// 			return '2';
+// 		case 'svelte':
+// 			return '3';
+// 		case 'media':
+// 			return '4';
+// 	}
+// }
 
 export function componentNameValid(str: string) {
 	return /-\[(\d+,)*\d+\]$/g.test(str) && savedComponents.some(({ name }) => str.startsWith(name));
@@ -391,13 +402,13 @@ export function decodeElComponentStr(content: string, for_: 'document' | 'compon
 	return fragment;
 }
 
-export function addCompLibVerAttrs(compInstance: DocumentFragment) {
+export function addCompLibVerAttrs(compInstance: DocumentFragment, doc: Doc) {
 	const walker = document.createTreeWalker(compInstance, NodeFilter.SHOW_ELEMENT);
 
 	let current: Node | null = walker.currentNode;
 	while (current) {
 		if (current instanceof Element)
-			current.setAttribute('data-complibver', doc.info.componentLibVer);
+			current.setAttribute('data-complibver', doc.info?.componentLibVer);
 		current = walker.nextNode();
 	}
 }
@@ -408,22 +419,22 @@ export function addCompLibVerAttrs(compInstance: DocumentFragment) {
  * @param componentElStyles If loading the library for the document editor, this should be a reference to the dynamic stylesheet for holding inherited component styles.
  */
 export function loadComponentLibrary(
-	compLib: SavedComponentOptionalIdentName[],
+	compLib: Component[],
 	for_: 'document' | 'component',
 	componentElStyles: DynamicStylesheet<string>
 ) {
-	const compLib_ = structuredClone(compLib).map((comp) => {
-		if (!comp.identName) comp.identName = comp.name;
-		return comp as SavedComponent;
-	});
+	// const compLib_ = structuredClone(compLib).map((comp) => {
+	// 	if (!comp.identName) comp.identName = comp.name;
+	// 	return comp as SavedComponent;
+	// });
 
-	savedComponents.splice(0, savedComponents.length, ...compLib_);
-	console.log('LOADING COMPONENT LIBRARY', compLib_, for_, componentElStyles);
+	savedComponents.splice(0, savedComponents.length, ...compLib);
+	console.log('LOADING COMPONENT LIBRARY', compLib, for_, componentElStyles);
 
 	componentElStyles.clear();
 
 	if (for_ === 'document') {
-		compLib_.forEach((comp) => {
+		compLib.forEach((comp) => {
 			if (comp.type !== 'element') return;
 
 			const parts = extractPartsFromElCompStr(comp.content);
@@ -463,13 +474,17 @@ export function loadComponentLibrary(
 
 export function changeElToComp(el: Element, compName: string) {
 	const [name, part] = getCompNameAndPart(compName);
-	// console.log(name, part);
 	const saved = savedComponents.find((item) => item.name === name)!;
-	// console.log(saved);
-	if (!saved.parts.split('|').includes(part))
+	if (saved.type !== 'element') {
+		console.error(
+			`Component '${compName}' passed to changeElToComp() is not of type element (but '${saved.type}'). Doing nothing.`
+		);
+		return;
+	}
+
+	if (!saved.parts.includes(part))
 		throw new Error(
 			`The provided component name does not have the provided part "${part} NOT IN ${saved.parts
-				.split('|')
 				.map((str) => '"' + str + '"')
 				.join('  ')}"`
 		);
@@ -651,7 +666,7 @@ export function protectInheritedAttrs(el: Element) {
 /////////////////////////////////////////////////////
 
 export interface GetCompLibFetchReturn {
-	library: Omit<SavedComponent, 'identName'>[];
+	library: Component[];
 	version: string;
 	upgrade_to_version: string;
 	upgrade_name_map: { [oldName: string]: string };

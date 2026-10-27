@@ -1,8 +1,4 @@
 <script lang="ts">
-	import { isInSveltePreview } from '../App.svelte';
-	import { closestAttribute } from '../helper';
-	import { savedComponents, selection } from '../store.svelte';
-
 	import WarningDiamondIcon from 'phosphor-svelte/lib/WarningDiamondIcon';
 	import CaretRightIcon from 'phosphor-svelte/lib/CaretRightIcon';
 	import CaretDownIcon from 'phosphor-svelte/lib/CaretDownIcon';
@@ -14,7 +10,11 @@
 	import { svelte } from '@replit/codemirror-lang-svelte';
 	import { espresso } from 'thememirror';
 	import { EditorState } from '@codemirror/state';
+
 	import type { Attribute } from '../editors/attributes/AttributesEditor.svelte';
+	import { isInSveltePreview } from '../App.svelte';
+	import { closestAttribute } from '../helper.js';
+	import { savedComponents, selection } from '../store.svelte.js';
 
 	interface Props {
 		currentAttrs: Attribute[];
@@ -99,7 +99,7 @@
 		if (!selectedSvelteComp) return [];
 		const comp = savedComponents.find((comp) => comp.name === selectedSvelteComp);
 		if (!comp || !comp.tags) return [];
-		else return comp.tags?.split(',') ?? [];
+		else return comp.tags ?? [];
 	});
 
 	const selectedPropEl = $derived.by(() => {
@@ -153,17 +153,17 @@
 </script>
 
 {#if selectedSvelteComp !== null}
-	<div class="text-rock-800 relative my-2 w-full text-xl">
-		<span class="bg-rock-100 rounded px-3 py-1.5"
+	<div class="relative my-2 w-full text-xl text-rock-800">
+		<span class="rounded bg-rock-100 px-3 py-1.5"
 			>{selectedSvelteComp || '[multiple svelte-type components]'}</span
 		>
 	</div>
-	<div class="text-rock-700 mb-1 text-lg italic" class:hidden={compDescription === null}>
+	<div class="mb-1 text-lg text-rock-700 italic" class:hidden={compDescription === null}>
 		{compDescription}
 	</div>
-	<div class="text-rock-700 text-lg/9 italic" class:hidden={compTags.length === 0}>
+	<div class="text-lg/9 text-rock-700 italic" class:hidden={compTags.length === 0}>
 		{#each compTags as tag}
-			<span class="bg-rock-50 border-rock-200 rounded border px-1 py-0.5">{tag}</span>
+			<span class="rounded border border-rock-200 bg-rock-50 px-1 py-0.5">{tag}</span>
 			&nbsp;
 		{/each}
 	</div>
@@ -171,7 +171,7 @@
 	<div class="my-3 text-left">
 		{let isExpanded = $state(false)}
 		<button
-			class="text-rock-700 hover:text-rock-600 inline-flex items-center gap-1 text-lg"
+			class="inline-flex items-center gap-1 text-lg text-rock-700 hover:text-rock-600"
 			onclick={() => (isExpanded = !isExpanded)}
 		>
 			View Svelte source
@@ -211,18 +211,18 @@
 		{/if}
 	</div>
 
-	<div class="text-rock-700 flex flex-wrap justify-center gap-4 text-xl">
+	<div class="flex flex-wrap justify-center gap-4 text-xl text-rock-700">
 		<button
 			onclick={removeSelectedSvelteComps}
 			class="rounded bg-red-100 p-2 text-red-700 hover:bg-red-200"
 			><TrashIcon weight="bold" /></button
 		>
-		<button onclick={reloadSelectedSvelteComps} class="bg-steel-100 hover:bg-steel-200 rounded p-2"
+		<button onclick={reloadSelectedSvelteComps} class="rounded bg-steel-100 p-2 hover:bg-steel-200"
 			><ArrowClockwiseIcon weight="bold" /></button
 		>
 		<button
 			onclick={toggleSelectedSourceElsVisibility}
-			class="bg-steel-100 hover:bg-steel-200 rounded p-2"
+			class="rounded bg-steel-100 p-2 hover:bg-steel-200"
 		>
 			{#if sourceElVisible}
 				<EyeIcon weight="bold" />
@@ -233,11 +233,11 @@
 	</div>
 
 	{#if selectedPropEl !== null}
-		<div class="bg-rock-200 my-3 h-0.5"></div>
+		<div class="my-3 h-0.5 bg-rock-200"></div>
 
 		<div class="text-rock-700 italic">
 			{#if selectedPropEl}
-				✨ Edits will be passed to the <span class="bg-rock-100 inline-block rounded p-1 font-mono"
+				✨ Edits will be passed to the <span class="inline-block rounded bg-rock-100 p-1 font-mono"
 					>{selectedPropEl}</span
 				> property
 			{:else}
@@ -249,7 +249,7 @@
 		<div class="h-8"></div>
 	{/if}
 
-	<div class="bg-rock-200 mb-8 h-0.5"></div>
+	<div class="mb-8 h-0.5 bg-rock-200"></div>
 {/if}
 
 {#if showWarning}

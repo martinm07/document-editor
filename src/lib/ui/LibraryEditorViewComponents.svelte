@@ -1,30 +1,40 @@
 <script lang="ts">
-	import ComponentTray from '../components/ComponentTray.svelte';
-
+	import { getContext } from 'svelte';
 	import TrashIcon from 'phosphor-svelte/lib/TrashIcon';
 	import ArrowsCounterClockwiseIcon from 'phosphor-svelte/lib/ArrowsCounterClockwiseIcon';
+
+	import ComponentTray from '../components/ComponentTray.svelte';
 	import {
-		comps,
+		Comps,
 		updateCompAdd,
 		updateCompRemove,
 		updateCompRestore
-	} from '../components/libraryeditor.svelte';
-	import { mode, type SavedComponent, type SavedComponentWithEdit } from '../store.svelte';
-	import { changePage, editorState } from '../url.svelte';
-	import type { CompTypeStr } from '../components/component.svelte';
+	} from '../components/libraryeditor.svelte.js';
+	import { mode } from '../store.svelte.js';
 	import starterSvelteCode from '../svelte/startersvelte.txt?raw';
+	import type { DocumentEditorProps } from '../App.svelte';
+	import type { Component, ComponentType, ComponentWithOptionalEditInfo } from '#lib/types.js';
 
-	function selectComponentEdit(comp: SavedComponent) {
-		if (editorState.mode !== 'component') return;
-		changePage('component', comp.identName, editorState.documentRedirect);
+	const editorState: () => DocumentEditorProps['editorState'] = getContext('editorState');
+	const doChangePage: () => DocumentEditorProps['doChangePage'] = getContext('doChangePage');
+	const comps: () => Comps = getContext('comps');
+
+	function selectComponentEdit(comp: ComponentWithOptionalEditInfo) {
+		if (editorState().mode !== 'component') return;
+		// changePage('component', comp.identName, editorState.documentRedirect);
+		doChangePage()({
+			mode: 'component',
+			resourceName: comp.identName ?? comp.name,
+			documentRedirect: editorState().resourceName
+		});
 	}
 
-	function handleComponentRemoveOrRestore(comp: SavedComponentWithEdit) {
-		if (comp.state === 'removed') updateCompRestore(comp.identName);
-		else updateCompRemove(comp.identName);
+	function handleComponentRemoveOrRestore(comp: ComponentWithOptionalEditInfo) {
+		if (comp.state === 'removed') updateCompRestore(comp.identName ?? comp.name);
+		else updateCompRemove(comp.identName ?? comp.name, comps());
 	}
 
-	function getStarterContent(type: CompTypeStr, startName: number) {
+	function getStarterContent(type: ComponentType, startName: number) {
 		switch (type) {
 			case 'element':
 				return `<div data-component="unnamed-${startName}-[1]">*initial*</div>`;
@@ -32,36 +42,57 @@
 				return `/*! COMP-INHERITED unnamed-${startName}-[1]*/em{font-size:0.9em}`;
 			case 'svelte':
 				return starterSvelteCode;
+			default:
+				throw new Error(`Passed unrecognised type to getStarterContent(). Got '${type}'`);
 		}
 	}
 
 	function selectComponentCreate() {
 		let startName = 1;
-		while (comps.lib.some((comp) => comp.name === `unnamed-${startName}`)) startName++;
+		while (comps().lib.some((comp) => comp.name === `unnamed-${startName}`)) startName++;
 
-		const edit = updateCompAdd({
-			name: `unnamed-${startName}`,
-			type: createCompType,
-			content: getStarterContent(createCompType, startName),
-			parts: '1'
+		// const edit = updateCompAdd({
+		// 	name: `unnamed-${startName}`,
+		// 	type: createCompType,
+		// 	content: getStarterContent(createCompType, startName),
+		// 	parts: '1'
+		// });
+		let addCompInfo: Component;
+		if (createCompType === 'svelte') {
+			addCompInfo = {
+				name: `unnamed-${startName}`,
+				type: createCompType,
+				content: getStarterContent(createCompType, startName)
+			};
+		} else {
+			addCompInfo = {
+				name: `unnamed-${startName}`,
+				type: createCompType,
+				content: getStarterContent(createCompType, startName),
+				parts: ['1']
+			};
+		}
+
+		const edit = updateCompAdd(addCompInfo);
+
+		doChangePage()({
+			mode: 'component',
+			resourceName: edit.identName,
+			// documentRedirect: editorState().mode === "document" ? editorState().resourceName : editorState().documentRedirect
+			documentRedirect: editorState().documentRedirect
 		});
-		changePage(
-			'component',
-			edit.identName,
-			editorState.mode === 'document' ? editorState.resourceName : editorState.documentRedirect
-		);
 	}
 
-	let createCompType: CompTypeStr = $state('element');
+	let createCompType: ComponentType = $state('element');
 
 	// $inspect(comps.lib);
 	// $inspect(comps.current);
 </script>
 
-{#if editorState.mode === 'component'}
+{#if editorState().mode === 'component'}
 	<div class:hidden={mode.sidebar !== 'viewcomponent'}>
 		<ComponentTray
-			comps={comps.lib}
+			comps={comps().lib}
 			mainAction={selectComponentEdit}
 			mainActionTag="a"
 			generateHref={(comp) => `/documents/edit/component/${comp.identName}`}
@@ -82,19 +113,19 @@
 
 <div
 	class="mt-4 flex flex-col items-center justify-center gap-2 p-2"
-	class:hidden={!mode.sidebar.includes('component') || editorState.mode !== 'component'}
+	class:hidden={!mode.sidebar.includes('component') || editorState().mode !== 'component'}
 >
 	<button
-		class="border-steel-300 bg-steel-100 text-steel-600 inset-shadow-rock-500 hover:inset-shadow-steel-100 hover:active:bg-steel-200 hover:active:text-steel-700 rounded border-2 px-3 py-1.5 font-mono text-lg font-bold shadow-2xs inset-shadow-xs transition-[padding,box-shadow] hover:px-3.5 hover:shadow-md hover:inset-shadow-2xs hover:active:translate-y-1"
+		class="rounded border-2 border-steel-300 bg-steel-100 px-3 py-1.5 font-mono text-lg font-bold text-steel-600 shadow-2xs inset-shadow-xs inset-shadow-rock-500 transition-[padding,box-shadow] hover:px-3.5 hover:shadow-md hover:inset-shadow-2xs hover:inset-shadow-steel-100 hover:active:translate-y-1 hover:active:bg-steel-200 hover:active:text-steel-700"
 		onclick={selectComponentCreate}>New component</button
 	>
 	<div
-		class="text-rock-600 font-mono text-sm tracking-tight italic"
+		class="font-mono text-sm tracking-tight text-rock-600 italic"
 		style="word-spacing: -0.125rem;"
 	>
 		Component type to create:
 		<select
-			class="text-rock-700 hover:text-rock-600 focus-visible:border-rock-400 cursor-pointer border border-transparent p-1 text-base not-italic focus:outline-none"
+			class="cursor-pointer border border-transparent p-1 text-base text-rock-700 not-italic hover:text-rock-600 focus:outline-none focus-visible:border-rock-400"
 			bind:value={createCompType}
 		>
 			<option value="element">element</option>

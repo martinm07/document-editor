@@ -92,22 +92,28 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
 	import { watch, FiniteStateMachine } from 'runed';
+
 	import tagAttributes from './tag_attributes.json';
-	import FitContentWrapTextarea from '/shared/components/FitContentWrapTextarea.svelte';
-	import FitContentInput from '/shared/components/FitContentInput.svelte';
+	import FitContentWrapTextarea from '../../ui/FitContentWrapTextarea.svelte';
+	import FitContentInput from '../../ui/FitContentInput.svelte';
 	import {
 		autocompleteSuggestions,
-		selection,
 		savedComponents,
 		maskedAttributes,
 		type MaskAttribute,
 		compPartToInheritedAttrs,
 		type PropsList
-	} from '../../store.svelte';
-	import { editorState } from '../../url.svelte';
-	import { changeElToComp, componentNameValid } from '../../components/component.svelte';
-	import type { TempMutationRecord } from '../../documents/docsyncing';
-	import { closest } from '../../helper';
+	} from '../../store.svelte.js';
+	import {
+		changeElToComp,
+		componentHasParts,
+		componentNameValid
+	} from '../../components/component.svelte.js';
+	import type { TempMutationRecord } from '../../documents/docsyncing.js';
+	import { closest } from '../../helper.js';
+	import type { DocumentEditorProps } from '../../App.svelte';
+
+	const editorState: () => DocumentEditorProps['editorState'] = getContext('editorState');
 
 	const updateHighlight: () => void = getContext('updateHighlight');
 	const syncFakeMutation: (mutation: TempMutationRecord) => void = getContext('syncFakeMutation');
@@ -319,9 +325,9 @@
 		});
 
 		const dataComponentI = attributes.findIndex((attr) => attr.name === 'data-component');
-		if (dataComponentI > 0 || (dataComponentI === 0 && editorState.mode !== 'document')) {
+		if (dataComponentI > 0 || (dataComponentI === 0 && editorState().mode !== 'document')) {
 			const dataComponent = attributes.splice(dataComponentI, 1)[0];
-			if (editorState.mode === 'document') attributes.unshift(dataComponent);
+			if (editorState().mode === 'document') attributes.unshift(dataComponent);
 		}
 
 		handleAutocomplete(allAvailable);
@@ -462,9 +468,8 @@
 		const names = savedComponents.filter(({ name }) =>
 			name.startsWith(value.replace(/-\[?(\d+,)*\d*\]?$/g, ''))
 		);
-		if (names.length === 1)
+		if (names.length === 1 && componentHasParts(names[0]))
 			$autocompleteSuggestions = names[0].parts
-				.split('|')
 				.map((part) => `${names[0].name}-[${part}]`)
 				.filter((name) => name.startsWith(value))
 				.toSorted((a, b) => a.length - b.length);
@@ -538,10 +543,10 @@
 	{#each attributes as attr, i}
 		<li
 			class:invalid={attr.name && !attr.valid}
-			class="group text-rock-700 border-rock-300 mb-2 flex flex-wrap items-center justify-center border-b pb-2 font-mono text-sm text-balance last-of-type:border-0"
+			class="group mb-2 flex flex-wrap items-center justify-center border-b border-rock-300 pb-2 font-mono text-sm text-balance text-rock-700 last-of-type:border-0"
 		>
 			<FitContentInput
-				class="attrname-input bg-steel-100 ring-steel-300/50 group-[.invalid]:text-rock-500 m-0.5 box-content max-w-[calc(100%-8px)] rounded p-1 font-bold text-wrap decoration-red-700 decoration-wavy group-[.invalid]:underline focus:ring-2 focus:outline-none disabled:opacity-50"
+				class="attrname-input m-0.5 box-content max-w-[calc(100%-8px)] rounded bg-steel-100 p-1 font-bold text-wrap decoration-red-700 decoration-wavy ring-steel-300/50 group-[.invalid]:text-rock-500 group-[.invalid]:underline focus:ring-2 focus:outline-none disabled:opacity-50"
 				bind:value={attr.name}
 				placeholder="attribute"
 				disabled={attr.name === 'data-component'}
@@ -551,7 +556,7 @@
 				}}
 			/>
 			<FitContentWrapTextarea
-				class="bg-steel-100 ring-steel-300/50 [.invalid]:text-rock-500 m-0.5 box-content max-w-[calc(100%-8px)] resize-none rounded p-1 text-wrap decoration-blue-400 decoration-dotted decoration-2 focus:ring-2 focus:outline-none [.unsynced]:underline {attr.name ===
+				class="m-0.5 box-content max-w-[calc(100%-8px)] resize-none rounded bg-steel-100 p-1 text-wrap decoration-blue-400 decoration-dotted decoration-2 ring-steel-300/50 focus:ring-2 focus:outline-none [.invalid]:text-rock-500 [.unsynced]:underline {attr.name ===
 					'data-component' && dataComponent.current.includes('diff')
 					? 'unsynced'
 					: ''} {attr.name === 'data-component' && !dataComponent.current.includes('valid')
@@ -593,7 +598,7 @@
 						><b>Note:&nbsp;</b>Doing this will not affect any of the descendents (including text).</span
 					>
 					<form
-						class="text-rock-600 mt-1 font-mono"
+						class="mt-1 font-mono text-rock-600"
 						onsubmit={(e) => {
 							e.preventDefault();
 							if (e.submitter?.classList.contains('cancel')) {
@@ -630,11 +635,11 @@
 					>
 						<button
 							type="submit"
-							class="cancel border-opacity-50 bg-background hover:bg-rock-100 mr-2 rounded-lg border-2 border-blue-400 px-1"
+							class="cancel border-opacity-50 mr-2 rounded-lg border-2 border-blue-400 bg-background px-1 hover:bg-rock-100"
 							>Cancel</button
 						><button
 							type="submit"
-							class="confirm border-opacity-50 bg-background hover:bg-rock-100 rounded-lg border-2 border-blue-400 px-1 disabled:opacity-50"
+							class="confirm border-opacity-50 rounded-lg border-2 border-blue-400 bg-background px-1 hover:bg-rock-100 disabled:opacity-50"
 							disabled={!dataComponent.current.includes('valid')}>Confirm</button
 						>
 					</form>
@@ -643,9 +648,9 @@
 		</li>
 	{/each}
 </ul>
-<div class="bg-rock-300 h-px w-full text-center">
+<div class="h-px w-full bg-rock-300 text-center">
 	<button
-		class="bg-background text-rock-400 hover:text-rock-200 inline-block -translate-y-1/2 px-2 text-xl"
+		class="inline-block -translate-y-1/2 bg-background px-2 text-xl text-rock-400 hover:text-rock-200"
 		onclick={() =>
 			attributes.push({
 				name: '',

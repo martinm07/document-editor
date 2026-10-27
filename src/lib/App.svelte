@@ -1,3 +1,8 @@
+<!--
+  @component
+  Here's some documentation for this component.
+
+-->
 <script module>
 	const LOG_PATCH_SYNC = false;
 	const LOG_DOC_HIST = true;
@@ -5,6 +10,52 @@
 	const LOG_SVELTE_BUNDLING = false;
 	const DO_SERVER_SYNC = true;
 	const SVELTE_PREVIEW_IN_HISTORY = false;
+
+	export interface EditorState {
+		mode: 'document' | 'component';
+		resourceName: string; // Either the ID of the document or the component
+		documentRedirect: string | null; // To support a "back button" when coming to component editor from document
+	}
+
+	interface FileUploadInHooks {
+		/**
+		 * @param progress A number between 0 and 1 representing the progress of the upload
+		 */
+		informUploadProgress: (progress: number) => void;
+		informUploadStatus: (status: 'queued' | 'uploading' | 'failed') => void;
+		informErrorMessage: (msg: string) => void;
+	}
+	interface FileUploadOutHooks {
+		cancelUpload: () => void;
+		getFilepath: () => MaybePromise<string>;
+	}
+
+	interface GenericDocumentEditorProps<Meta extends { [key: string]: any }> {
+		editorState: EditorState;
+		metaPropNames: { [K in keyof Meta]-?: true };
+
+		doChangePage: (changes: Partial<EditorState>) => void;
+		doFullSync: (
+			id: string,
+			body: string,
+			metaChanges?: DocumentMetaUpdate<Meta>
+		) => MaybePromise<void>;
+		doPatchSync: (
+			id: string,
+			changes: DocumentPatch[],
+			metaChanges?: DocumentMetaUpdate<Meta>
+		) => MaybePromise<void>;
+		doMediaUpload: (file: File, hooks: FileUploadInHooks) => FileUploadOutHooks;
+		doMediaRemove: (filepath: string) => MaybePromise<void>;
+		doPublish: (doc: EditorDocument<Meta>) => MaybePromise<void>;
+		doCompLibUpdate: (info: CompLibUpgrade) => MaybePromise<void>;
+		getDoc: (id: string) => MaybePromise<EditorDocument<Meta>>;
+		getLatestCompLibVersion: () => MaybePromise<string>;
+		getCompLib: (version: string) => MaybePromise<Component[]>;
+		getAllUploadedMedia: () => MaybePromise<string[]>;
+	}
+
+	export type DocumentEditorProps = GenericDocumentEditorProps<any>;
 
 	let docEl: HTMLElement | undefined = $state();
 
@@ -41,21 +92,22 @@
 	};
 </script>
 
-<script lang="ts">
-	import '/shared/tailwindinit.css';
+<script lang="ts" generics="Meta extends { [key: string]: any }">
+	import './ui/tailwindinit.css';
 	import './ui/style.css';
+
+	export { type Meta };
+
+	import { onDestroy, setContext } from 'svelte';
+	import { on } from 'svelte/events';
+	import { PersistedState, useMutationObserver, watch } from 'runed';
+	import { PaneGroup, Pane, PaneResizer } from 'paneforge';
 
 	import NodeSelect, { type INodeSelect } from './cursormodes/NodeSelect.svelte';
 	import EditText, { type IEditText } from './cursormodes/EditText.svelte';
 	import Sidebar from './ui/Sidebar.svelte';
 	import Topbar from './ui/Topbar.svelte';
-	import { PersistedState, useMutationObserver, watch } from 'runed';
-	import { onDestroy, setContext } from 'svelte';
-
-	import { PaneGroup, Pane, PaneResizer } from 'paneforge';
-
-	import { mode, selection, autocompleteMode, type SavedComponent, doc } from './store.svelte';
-	import { editorState } from './url.svelte';
+	import { mode, selection, autocompleteMode, GenericDoc, CompLib } from './store.svelte.js';
 	import AddNode, { type IAddNode } from './cursormodes/AddNode.svelte';
 	import MultipleSelect, { type IMultipleSelect } from './cursormodes/MultipleSelect.svelte';
 	import MoveNodes from './cursormodes/MoveNodes.svelte';
@@ -67,7 +119,7 @@
 		DynamicStylesheet,
 		isInSveltePreview as isInSveltePreview_,
 		type SveltePreviewCheckCache
-	} from './helper';
+	} from './helper.js';
 	import {
 		type DocNodeMap,
 		type StringPosNodeMap,
@@ -75,22 +127,67 @@
 		processMutations,
 		patchMutations,
 		type DocPatch
-	} from './documents/docsyncing';
+	} from './documents/docsyncing.js';
 	import Autocomplete from './editors/Autocomplete.svelte';
 	import SaveChanges from './components/SaveChanges.svelte';
-	import { HistoryManager } from './documents/history';
+	import { HistoryManager } from './documents/history.js';
 	import { syncDataStyleAttrs, type IAllStyleEditors } from './editors/css/AllStyleEditors.svelte';
-	import { onKeydown } from './documents/keyboard';
-	import { handleCollapsePrevention } from './documents/collapseprevention';
-	import { loadDocument, loadComponent } from './documents/docloading.svelte';
-	import { SaveDoc } from './documents/docsaving.svelte';
-	import { on } from 'svelte/events';
+	import { onKeydown } from './documents/keyboard.js';
+	import { handleCollapsePrevention } from './documents/collapseprevention.js';
+	import { loadDocument, loadComponent } from './documents/docloading.svelte.js';
+	import { SaveDoc } from './documents/docsaving.svelte.js';
 	import DocMeta, { type IDocMeta } from './documents/DocMeta.svelte';
 	import { protectInheritedAttrs } from './components/component.svelte';
 	import DocStyles, { type IDocStyles } from './documents/DocStyles.svelte';
-	import { comps } from './components/libraryeditor.svelte';
-	import { SvelteCompiler } from './svelte/compiler';
-	import { handleSvelteCompMounts } from './svelte/sveltecomp.svelte';
+	import { SvelteCompiler } from './svelte/compiler.js';
+	import { handleSvelteCompMounts } from './svelte/sveltecomp.svelte.js';
+	import { Comps } from './components/libraryeditor.svelte.js';
+	import type {
+		CompLibUpgrade,
+		Component,
+		DocumentMetaUpdate,
+		DocumentPatch,
+		EditorDocument,
+		MaybePromise
+	} from './types.js';
+
+	let {
+		editorState,
+		metaPropNames,
+		doChangePage,
+		doPatchSync,
+		doFullSync,
+		doMediaUpload,
+		doMediaRemove,
+		doPublish,
+		doCompLibUpdate,
+		getDoc,
+		getLatestCompLibVersion,
+		getCompLib,
+		getAllUploadedMedia
+	}: GenericDocumentEditorProps<Meta> = $props();
+
+	setContext('editorState', () => editorState);
+	setContext('metaPropNames', () => metaPropNames);
+	setContext('doChangePage', () => doChangePage);
+	setContext('doPatchSync', () => doPatchSync);
+	setContext('doFullSync', () => doFullSync);
+	setContext('doPublish', () => doPublish);
+	setContext('doMediaUpload', () => doMediaUpload);
+	setContext('doMediaRemove', () => doMediaRemove);
+	setContext('doCompLibUpdate', () => doCompLibUpdate);
+	setContext('getDoc', () => getDoc);
+	setContext('getLatestCompLibVersion', () => getLatestCompLibVersion);
+	setContext('getCompLib', () => getCompLib);
+	setContext('getAllUploadedMedia', () => getAllUploadedMedia);
+
+	const doc = new GenericDoc<Meta>(() => metaPropNames);
+	setContext('doc', doc);
+
+	const comps = new Comps(() => editorState);
+	setContext('comps', comps);
+	const compLib = new CompLib(doc);
+	setContext('compLib', compLib);
 
 	let documentID = $derived(
 		editorState.mode === 'document' ? Number.parseInt(editorState.resourceName) : null
@@ -103,6 +200,12 @@
 		() => documentID,
 		() => {
 			loadDocument({
+				editorState: () => editorState,
+				doc,
+				compLib,
+				getLatestCompLibVersion,
+				getCompLib,
+				getDoc,
 				multipleSelect,
 				docEl,
 				historyManager,
@@ -116,6 +219,12 @@
 		() => componentID,
 		() => {
 			loadComponent({
+				editorState: () => editorState,
+				doc,
+				compLib,
+				getLatestCompLibVersion,
+				getCompLib,
+				getDoc,
 				multipleSelect,
 				docEl,
 				historyManager,
@@ -388,6 +497,11 @@
 	}
 
 	const docSaver = new SaveDoc({
+		editorState: () => editorState,
+		doPatchSync: () => doPatchSync,
+		doFullSync: () => doFullSync,
+		doc,
+		comps,
 		makePatches: createPatches,
 		getDocEl: () => docEl,
 		docNodes,
@@ -486,22 +600,22 @@
 	<Pane>
 		<PaneGroup direction="vertical" autoSaveId="editor-sidebar-vertical-pane-sizes">
 			<Pane
-				class="border-rock-300 bg-background border-r-2"
+				class="border-r-2 border-rock-300 bg-background"
 				style="scrollbar-color: var(--rock-100) var(--background);"
 			>
 				<div class="h-full overflow-y-scroll">
 					<div
 						class="relative h-fit p-2 [.svelte-editor]:flex [.svelte-editor]:h-full"
-						class:svelte-editor={comps.current.type === 'svelte' && mode.sidebar === 'edit'}
+						class:svelte-editor={comps.current?.type === 'svelte' && mode.sidebar === 'edit'}
 					>
 						<Sidebar bind:attributesEditor bind:cssEditor />
 					</div>
 				</div>
 			</Pane>
-			<PaneResizer class="bg-background border-rock-300 h-2 border-r-2" />
+			<PaneResizer class="h-2 border-r-2 border-rock-300 bg-background" />
 			<Pane
 				style="scrollbar-color: #cdcdcd var(--rock-50);"
-				class="bg-rock-50 border-rock-300 border-t-2 border-r-2 {comps.current.type === 'svelte' ||
+				class="border-t-2 border-r-2 border-rock-300 bg-rock-50 {comps.current?.type === 'svelte' ||
 				(mode.sidebar !== 'edit' && mode.sidebar !== 'styles')
 					? 'hidden'
 					: ''}"
@@ -529,7 +643,7 @@
 	/>
 	<Pane class="flex flex-col">
 		<div
-			class="topbar border-rock-300 bg-rock-50 bg-opacity-85 relative flex h-12 shrink-0 border-b-2"
+			class="topbar bg-opacity-85 relative flex h-12 shrink-0 border-b-2 border-rock-300 bg-rock-50"
 		>
 			<Topbar />
 		</div>
@@ -564,7 +678,7 @@
 	>
 		<div class="mr-1">!!!</div>
 		<div>
-			This document (ID {doc.info.id}) does not exist on the server.<br />
+			This document (ID {doc.info?.id}) does not exist on the server.<br />
 			<span class="text-base font-normal italic"
 				>Changes will be saved locally, but can't be saved on the server.</span
 			>

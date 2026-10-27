@@ -7,7 +7,7 @@
 <script lang="ts">
 	import { onDestroy, getContext } from 'svelte';
 	import { on } from 'svelte/events';
-	import { mode, selection } from '../store.svelte';
+	import { mode, selection } from '../store.svelte.js';
 	import { isInSveltePreview } from '../App.svelte';
 
 	const getDocEl: () => HTMLElement = getContext('getDocEl');
@@ -113,7 +113,7 @@
 <svelte:window onwheel={onWheel} onkeydown={onKeydown} />
 <div
 	class:hidden={!selection.hover || !displaySelection}
-	class="border-rock-500/50 pointer-events-none absolute z-10 box-content -translate-x-2 -translate-y-2 rounded-xl border-8"
+	class="pointer-events-none absolute z-10 box-content -translate-x-2 -translate-y-2 rounded-xl border-8 border-rock-500/50"
 	class:border-dashed={selection.hover?.getAttribute('data-component') ||
 		isInSveltePreview(selection.hover)}
 	bind:this={highlight}

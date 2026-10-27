@@ -6,10 +6,10 @@ import {
 	type DocPatchDom,
 	type StringPosNodeMap,
 	reconstructHTMLString
-} from './docsyncing';
-import { closestClass, insertAfter, parseHTMLFragment } from '../helper';
+} from './docsyncing.js';
+import { insertAfter, parseHTMLFragment } from '../helper.js';
 import { isNotBody, isHistoryNotBody } from '../App.svelte';
-import { selection } from '../store.svelte';
+import { selection } from '../store.svelte.js';
 
 export type DocHistoryStack = DocHistoryItem[];
 
@@ -176,7 +176,7 @@ export class HistoryManager {
 	flagSuggestNewHistoryItem: boolean = false;
 	flagForceNewHistoryItem: boolean = false;
 	flagHistoryStateChange: boolean = false;
-	newHistoryItemTimeout?: number;
+	newHistoryItemTimeout?: NodeJS.Timeout;
 
 	private claimedCaretState: EditorCaret = { focusArea: null };
 	private editorHooks: EditorHooks;

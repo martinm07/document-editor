@@ -2,8 +2,9 @@
 	import { onDestroy, getContext } from 'svelte';
 	import { on } from 'svelte/events';
 	import { watch } from 'runed';
-	import { mode, selection } from '../store.svelte';
-	import { prevSibling, nextSibling } from '../helper';
+
+	import { mode, selection } from '../store.svelte.js';
+	import { prevSibling, nextSibling } from '../helper.js';
 	import { PotentialLocations, type Rect } from './AddNode.svelte';
 	import { type IAttributesEditor } from '../editors/attributes/AttributesEditor.svelte';
 
@@ -25,7 +26,7 @@
 		}
 	);
 
-	const potentialLocations = new PotentialLocations(docEl);
+	const potentialLocations = new PotentialLocations(docEl, docEl.parentElement?.parentElement!);
 	// onDestroy(potentialLocations.removePotentialLocs);
 	const docParent = docEl.parentElement!;
 

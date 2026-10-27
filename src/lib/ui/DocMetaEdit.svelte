@@ -4,17 +4,20 @@
 </script>
 
 <script lang="ts">
-	import { watch } from 'runed';
-	import { allDocumentTags, autocompleteSuggestions, doc } from '../store.svelte';
-	import FitContentWrapTextarea from '/shared/components/FitContentWrapTextarea.svelte';
-	import { TagsEditor } from '../components/ComponentMetaEdit.svelte';
-	import { fetch_, timeoutPromise } from '/shared/helper';
-	import { deepEqual, DynamicGroupStylesheet, DynamicStylesheet } from '../helper';
 	import { getContext } from 'svelte';
-	import { createPublishDoc } from '../documents/docsaving.svelte';
-	import { generateRuleString } from '../documents/DocStyles.svelte';
-	import type { SvelteCompiler } from '../svelte/compiler';
+	import { watch } from 'runed';
 
+	import { allDocumentTags, autocompleteSuggestions, type Doc } from '../store.svelte.js';
+	import FitContentWrapTextarea from './FitContentWrapTextarea.svelte';
+	import { TagsEditor } from '../components/ComponentMetaEdit.svelte';
+	import { deepEqual, DynamicGroupStylesheet, DynamicStylesheet } from '../helper.js';
+	import { createPublishDoc } from '../documents/docsaving.svelte.js';
+	import { generateRuleString } from '../documents/DocStyles.svelte';
+	import type { SvelteCompiler } from '../svelte/compiler.js';
+	import type { DocumentEditorProps } from '../App.svelte';
+
+	const doc: Doc = getContext('doc');
+	const doPublish: () => DocumentEditorProps['doPublish'] = getContext('doPublish');
 	const getDocEl: () => HTMLElement = getContext('getDocEl');
 	const getDataStyles: () => DynamicStylesheet<string> = getContext('getDataStyles');
 	const getComponentElStyles: () => DynamicStylesheet<string> = getContext('getComponentElStyles');
@@ -50,14 +53,23 @@
 				console.log('PUBLISHING CHANGES.');
 				console.log('HTML string of published document:\n--------\n' + bodyStr);
 				console.log('Stylesheet string of published document:\n-------\n' + stylesheetStr);
-				return fetch_('/documents/api/publish_development_document', {
-					method: 'post',
-					body: JSON.stringify({
-						id: doc.info.id,
+				// return fetch_('/documents/api/publish_development_document', {
+				// 	method: 'post',
+				// 	body: JSON.stringify({
+				// 		id: doc.info.id,
+				// 		body: bodyStr,
+				// 		stylesheet: stylesheetStr
+				// 	})
+				// });
+				return Promise.resolve(
+					doPublish()({
+						id: doc.id,
 						body: bodyStr,
-						stylesheet: stylesheetStr
+						stylesheet: stylesheetStr,
+						compLibVer: doc.compLibVer,
+						...doc.info
 					})
-				});
+				);
 			});
 		publishResp.finally(() => (disablePublishBtn = false));
 	}
@@ -128,7 +140,7 @@
 	}
 
 	let confirmPublish = $state(false);
-	let publishResp: Promise<Response> | null = $state(null);
+	let publishResp: Promise<void> | null = $state(null);
 	let disablePublishBtn = $state(false);
 </script>
 
@@ -139,14 +151,14 @@
 	}}
 />
 
-<div class="text-rock-800 my-4 text-center text-xl italic">View/Edit the document's metadata</div>
+<div class="my-4 text-center text-xl text-rock-800 italic">View/Edit the document's metadata</div>
 
 <div>
 	<div class="mx-auto flex max-w-5xl items-stretch px-4 text-lg">
-		<label for="edit-title" class="text-rock-700 flex items-center text-2xl">Title:</label>
+		<label for="edit-title" class="flex items-center text-2xl text-rock-700">Title:</label>
 		<div class="relative mx-3 grow">
 			<input
-				class="border-rock-300 bg-background text-rock-600 inset-shadow-rock-200 ring-steel-200 w-full rounded border-b-2 px-3 py-1.5 font-mono inset-shadow-none outline-none focus:bg-white focus:ring-4 [.error]:border-red-300 [.error]:focus:ring-red-200"
+				class="w-full rounded border-b-2 border-rock-300 bg-background px-3 py-1.5 font-mono text-rock-600 inset-shadow-none ring-steel-200 inset-shadow-rock-200 outline-none focus:bg-white focus:ring-4 [.error]:border-red-300 [.error]:focus:ring-red-200"
 				class:error={validateTitle(doc.info.title)}
 				type="text"
 				name="edit-title"
@@ -164,14 +176,14 @@
 	</div>
 
 	<div class="mx-auto mt-12 flex max-w-3xl items-stretch px-4">
-		<label for="edit-description" class="text-rock-700 flex items-center text-2xl"
+		<label for="edit-description" class="flex items-center text-2xl text-rock-700"
 			>Description:</label
 		>
 		<div class="relative mx-3 flex grow">
 			<FitContentWrapTextarea
 				class="{validateDescription(doc.info.description)
 					? 'error'
-					: ''} border-rock-300 bg-background text-rock-600 inset-shadow-rock-200 ring-steel-200 box-content w-full grow resize-none rounded border-b-2 px-3 py-1.5 font-mono inset-shadow-none outline-none focus:bg-white focus:ring-4 [.error]:border-red-300 [.error]:focus:ring-red-200"
+					: ''} box-content w-full grow resize-none rounded border-b-2 border-rock-300 bg-background px-3 py-1.5 font-mono text-rock-600 inset-shadow-none ring-steel-200 inset-shadow-rock-200 outline-none focus:bg-white focus:ring-4 [.error]:border-red-300 [.error]:focus:ring-red-200"
 				dontModifyWidth
 				name="edit-description"
 				id="edit-description"
@@ -189,7 +201,7 @@
 	<div class="mx-auto mt-5 flex max-w-3xl px-4">
 		<label
 			for="edit-tags-doc"
-			class="text-rock-700 flex items-center text-2xl"
+			class="flex items-center text-2xl text-rock-700"
 			id="edit-tags-doc-label">Tags:</label
 		>
 		<div
@@ -206,43 +218,43 @@
 				}
 			}}
 			onkeydown={(e) => tagsEditor.onKeydown(e)}
-			class="text-rock-600 relative mx-3 flex min-w-60 flex-wrap font-mono outline-none"
+			class="relative mx-3 flex min-w-60 flex-wrap font-mono text-rock-600 outline-none"
 		></div>
 	</div>
 </div>
-<div class="text-rock-500 mx-auto mt-1 max-w-3xl pl-8 text-base italic">
+<div class="mx-auto mt-1 max-w-3xl pl-8 text-base text-rock-500 italic">
 	Press "+" while editing to add new tags. <a
-		class="text-steel-600 ml-1 text-lg underline hover:no-underline"
+		class="ml-1 text-lg text-steel-600 underline hover:no-underline"
 		href="/documents/tags"
 		target="_blank">Manage tags</a
 	>
 </div>
 
 <div class="mx-auto mt-5 flex max-w-3xl px-4">
-	<label class="text-rock-700 mr-3 flex items-center text-2xl" for="edit-accent">Accent:</label>
+	<label class="mr-3 flex items-center text-2xl text-rock-700" for="edit-accent">Accent:</label>
 	<input
 		bind:value={doc.info.accent}
-		class="border-rock-300 bg-background rounded border-2 p-1"
+		class="rounded border-2 border-rock-300 bg-background p-1"
 		id="edit-accent"
 		type="color"
 	/>
 </div>
 
 <div class="mx-auto mt-7 flex max-w-3xl px-4">
-	<label class="text-rock-700 mr-3 flex items-center text-2xl" for="edit-thumbnail"
+	<label class="mr-3 flex items-center text-2xl text-rock-700" for="edit-thumbnail"
 		>Thumbnail:</label
 	>
 	<textarea
-		class="border-rock-300 bg-background ring-steel-200 text-rock-600 h-28 grow rounded border-2 p-1 font-mono outline-none focus:bg-white focus:ring-4"
+		class="h-28 grow rounded border-2 border-rock-300 bg-background p-1 font-mono text-rock-600 ring-steel-200 outline-none focus:bg-white focus:ring-4"
 		name="edit-thumbnail"
 		id="edit-thumbnail"
 		bind:value={doc.info.thumbnail}></textarea>
 </div>
 
 <div class="mx-auto mt-5 flex max-w-3xl px-4">
-	<label class="text-rock-700 mr-3 flex items-center text-2xl" for="edit-status">Status:</label>
+	<label class="mr-3 flex items-center text-2xl text-rock-700" for="edit-status">Status:</label>
 	<select
-		class="text-rock-600 bg-background border-rock-300 ring-steel-200 rounded border-b-2 px-4 py-2 font-mono text-lg font-bold focus:ring-4"
+		class="rounded border-b-2 border-rock-300 bg-background px-4 py-2 font-mono text-lg font-bold text-rock-600 ring-steel-200 focus:ring-4"
 		id="edit-status"
 		bind:value={doc.info.status}
 	>
@@ -262,7 +274,7 @@
 		</div>
 	{/if}
 	<button
-		class="border-steel-300 text-steel-600 bg-steel-50 ring-steel-100 active:bg-steel-100 rounded border-2 px-4 py-1 text-xl font-bold hover:bg-white hover:ring-4 active:translate-y-1 disabled:pointer-events-none disabled:opacity-50"
+		class="rounded border-2 border-steel-300 bg-steel-50 px-4 py-1 text-xl font-bold text-steel-600 ring-steel-100 hover:bg-white hover:ring-4 active:translate-y-1 active:bg-steel-100 disabled:pointer-events-none disabled:opacity-50"
 		type="button"
 		onclick={() => (!confirmPublish ? (confirmPublish = true) : publishChanges())}
 		disabled={disablePublishBtn}>Publish Changes</button
@@ -270,33 +282,32 @@
 	{#if publishResp}
 		{#await publishResp}
 			<div class="text-rock-700 italic">Processing...</div>
-		{:then resp}
-			{#if resp.ok}
-				<div class="font-bold text-green-700">Success!</div>
-			{:else}
-				{let respText = $state('')}
+		{:then}
+			<div class="font-bold text-green-700">Success!</div>
+			<!-- {let respText = $state('')}
 				{const _ = resp.text().then((text) => (respText = text))}
 				<div class="font-bold text-red-700">
 					({resp.status}) Something went wrong. Message:<br /><span class="font-normal"
 						>{respText}</span
 					>
-				</div>
-			{/if}
-		{:catch}
-			<div class="font-bold text-red-700">Something went wrong.</div>
+				</div> -->
+		{:catch err}
+			<div class="font-bold text-red-700">
+				Something went wrong. {err instanceof Error && err.message}
+			</div>
 		{/await}
 	{/if}
 </div>
 
 <style>
-	@reference "/shared/tailwindinit.css";
+	@reference "./tailwindinit.css";
 
 	:global {
 		#edit-tags-doc span.space {
 			@apply text-2xl;
 		}
 		#edit-tags-doc span:not(.space) {
-			@apply border-rock-300 bg-background my-2 block rounded border-2 p-0.5;
+			@apply my-2 block rounded border-2 border-rock-300 bg-background p-0.5;
 		}
 		#edit-tags-doc span.new {
 			@apply border-dashed;
@@ -309,7 +320,7 @@
 			content: var(--errormsg);
 		}
 		#edit-tags-doc:focus span.focused {
-			@apply ring-steel-200 bg-white ring-4;
+			@apply bg-white ring-4 ring-steel-200;
 		}
 
 		/* Make the "placeholder" for when there are no tags (the field is empty) */
@@ -319,10 +330,10 @@
 		}
 		#edit-tags-doc:has(span.error[style*='Missing tag']:only-child)::before {
 			content: 'Tag Guidance Document';
-			@apply border-rock-300 bg-background text-rock-600/50 absolute -z-10 my-2 rounded border-b-2 p-0.5 text-nowrap;
+			@apply absolute -z-10 my-2 rounded border-b-2 border-rock-300 bg-background p-0.5 text-nowrap text-rock-600/50;
 		}
 		#edit-tags-doc:focus::before {
-			@apply ring-steel-200 bg-white! ring-4;
+			@apply bg-white! ring-4 ring-steel-200;
 		}
 		/*#edit-tags span.error:only-child {
       display: none:

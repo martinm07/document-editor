@@ -110,17 +110,19 @@
 </script>
 
 <script lang="ts">
-	import { setContext } from 'svelte';
+	import { getContext, setContext } from 'svelte';
 	import CaretRighticon from 'phosphor-svelte/lib/CaretRightIcon';
 	import CaretDownicon from 'phosphor-svelte/lib/CaretDownIcon';
 
-	import { selection } from '../../store.svelte';
-	import { editorState } from '../../url.svelte';
+	import { selection } from '../../store.svelte.js';
 	import CSSEditor, { type ICSSEditor } from './CSSEditor.svelte';
 	import { type Attribute } from '../attributes/AttributesEditor.svelte';
 	import AddPseudoClassForm from './AddPseudoClassForm.svelte';
 	import MDNPseudoLinks from './mdn_pseudo_links.json';
-	import type { DynamicStylesheet } from '../../helper';
+	import type { DynamicStylesheet } from '../../helper.js';
+	import type { EditorState } from '../../App.svelte';
+
+	const editorState: () => EditorState = getContext('editorState');
 
 	interface Props {
 		currentAttrs: Attribute[];
@@ -128,7 +130,7 @@
 	let { currentAttrs }: Props = $props();
 
 	let selectionHasComponents = $derived(
-		editorState.mode === 'document' &&
+		editorState().mode === 'document' &&
 			selection.main.some((el) => el.getAttribute('data-component'))
 	);
 
@@ -159,7 +161,7 @@
 <br />
 
 <button
-	class="text-rock-700 hover:text-rock-600 mt-4 flex items-center justify-start text-lg"
+	class="mt-4 flex items-center justify-start text-lg text-rock-700 hover:text-rock-600"
 	onclick={() => (pseudoStylesListOpen = !pseudoStylesListOpen)}
 >
 	Styles by pseudo-class
@@ -173,7 +175,7 @@
 {#if pseudoStylesListOpen}
 	{#each pseudoStylesList as attr, i}
 		<div class="mb-3">
-			<div class="text-rock-700 flex items-center justify-center font-mono text-lg">
+			<div class="flex items-center justify-center font-mono text-lg text-rock-700">
 				{let referenceURL = MDNPseudoLinks.find((item) => item.name === attr.name)?.url}
 				{attr.name}
 				<!-- <button class="text-red-700 ml-1.5 mb-0.5"><XCircleIcon /></button> -->
@@ -208,21 +210,21 @@
 		</div>
 
 		{#if i < pseudoStylesList.length - 1}
-			<div class="bg-rock-300 h-px w-full text-center"></div>
+			<div class="h-px w-full bg-rock-300 text-center"></div>
 		{/if}
 	{:else}
-		<div class="text-rock-600 mt-3 text-xl italic">No explicit pseudo-class styles yet.</div>
+		<div class="mt-3 text-xl text-rock-600 italic">No explicit pseudo-class styles yet.</div>
 	{/each}
 	{let showAddForm = $state(false)}
 	{#if !showAddForm}
-		<div class="bg-rock-300 mt-6 h-px w-full text-center">
+		<div class="mt-6 h-px w-full bg-rock-300 text-center">
 			<button
-				class="bg-background text-rock-400 hover:text-rock-200 inline-block -translate-y-1/2 px-2 text-xl"
+				class="inline-block -translate-y-1/2 bg-background px-2 text-xl text-rock-400 hover:text-rock-200"
 				onclick={() => (showAddForm = true)}>+</button
 			>
 		</div>
 	{:else}
-		<div class="bg-rock-300 h-px w-full text-center"></div>
+		<div class="h-px w-full bg-rock-300 text-center"></div>
 		<AddPseudoClassForm
 			extraValidation={(value) => pseudoStylesList.every((item) => item.name !== value)}
 			onGoBack={() => (showAddForm = false)}

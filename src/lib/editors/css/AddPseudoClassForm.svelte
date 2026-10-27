@@ -2,9 +2,9 @@
 	import PlusIcon from 'phosphor-svelte/lib/PlusIcon';
 	import ArrowBendUpLeftIcon from 'phosphor-svelte/lib/ArrowBendUpLeftIcon';
 
-	import FitContentInput from '/shared/components/FitContentInput.svelte';
+	import FitContentInput from '../../ui/FitContentInput.svelte';
 	import MDNPseudoLinks from './mdn_pseudo_links.json';
-	import { selection } from '../../store.svelte';
+	import { selection } from '../../store.svelte.js';
 
 	function addPseudoClass(e: SubmitEvent) {
 		e.preventDefault();
@@ -43,19 +43,19 @@
 	{#if onGoBack}
 		<button
 			type="button"
-			class="text-rock-600 bg-rock-50 hover:bg-rock-100 border-rock-300 active:bg-rock-200 m-0.5 mr-2 rounded border-2 px-0.5 text-xl active:translate-y-1"
+			class="m-0.5 mr-2 rounded border-2 border-rock-300 bg-rock-50 px-0.5 text-xl text-rock-600 hover:bg-rock-100 active:translate-y-1 active:bg-rock-200"
 			onclick={() => onGoBack()}><ArrowBendUpLeftIcon /></button
 		>
 	{/if}
 	<button
 		type="submit"
-		class="text-rock-600 bg-rock-50 hover:bg-rock-100 border-rock-300 active:bg-rock-200 m-0.5 mr-2 rounded border-2 px-0.5 text-xl active:translate-y-1 disabled:pointer-events-none disabled:opacity-50"
+		class="m-0.5 mr-2 rounded border-2 border-rock-300 bg-rock-50 px-0.5 text-xl text-rock-600 hover:bg-rock-100 active:translate-y-1 active:bg-rock-200 disabled:pointer-events-none disabled:opacity-50"
 		disabled={!valid}><PlusIcon /></button
 	>
 
 	<FitContentInput
 		type="text"
-		class="bg-steel-100 text-rock-700 box-content rounded px-1.5 py-1 font-mono font-bold decoration-2 focus:outline-none aria-invalid:underline aria-invalid:decoration-red-600 aria-invalid:decoration-dotted"
+		class="box-content rounded bg-steel-100 px-1.5 py-1 font-mono font-bold text-rock-700 decoration-2 focus:outline-none aria-invalid:underline aria-invalid:decoration-red-600 aria-invalid:decoration-dotted"
 		placeholder="pseudoclass"
 		aria-invalid={!valid && value !== ''}
 		bind:value
@@ -74,7 +74,7 @@
 	<a
 		href={helpLink}
 		aria-label="Open MDN docs"
-		class="text-rock-700 ml-1 inline-flex items-center text-xl hover:opacity-60 [.disabled]:pointer-events-none [.disabled]:opacity-50"
+		class="ml-1 inline-flex items-center text-xl text-rock-700 hover:opacity-60 [.disabled]:pointer-events-none [.disabled]:opacity-50"
 		class:disabled={!helpLink}
 		aria-disabled={!helpLink}
 		target="_blank"><ion-icon name="help-circle-outline"></ion-icon></a

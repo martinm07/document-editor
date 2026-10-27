@@ -9,7 +9,7 @@
 <script lang="ts">
 	import type { Attachment } from 'svelte/attachments';
 	import { watch } from 'runed';
-	import { selection } from '../store.svelte';
+	import { selection } from '../store.svelte.js';
 
 	let highlights: HTMLElement[] = $state([]);
 	// $inspect(highlights);
@@ -111,7 +111,7 @@
 {#each selection.selected as _, i}
 	<div
 		class:hidden={selection.selected.length === 0}
-		class="ring-rock-700/50 pointer-events-none absolute z-10 rounded ring-4"
+		class="pointer-events-none absolute z-10 rounded ring-4 ring-rock-700/50"
 		bind:this={highlights[i]}
 		{@attach spliceOnDestroy(i)}
 	></div>

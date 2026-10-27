@@ -3,7 +3,7 @@
 		'absolute w-[96%] left-[2%] h-[calc(100vh-4rem)] bg-white z-10 top-12 border-2 border-t-0 rounded-b-lg border-rock-300 overflow-y-scroll shadow-[0_30px_5px_20px_var(--background-50)]'; //t
 
 	export class InputState {
-		keyName: keyof CompParts;
+		keyName: Exclude<keyof ComponentMeta, 'tags'>;
 		keyVal: string;
 		inputVal: string | null = $state(null);
 		inputErr: string | null;
@@ -12,14 +12,16 @@
 		syncHook?: Function;
 
 		constructor(
-			keyName: keyof CompParts,
+			keyName: typeof this.keyName,
 			validateVal: (val: string) => string | null,
+			comps: Comps,
+			editorState: () => EditorState,
 			syncHook?: Function
 		) {
 			this.keyName = keyName;
-			this.keyVal = $derived(comps.current[this.keyName] ?? '');
+			this.keyVal = $derived(comps.current?.[this.keyName] ?? '');
 			this.inputErr = $derived(this.inputVal !== null ? validateVal(this.inputVal) : null);
-			this.inputVal = comps.current[this.keyName] ?? '';
+			this.inputVal = comps.current?.[this.keyName] ?? '';
 			this.syncHook = syncHook;
 
 			watch([() => this.inputVal, () => this.inputErr], () => {
@@ -30,9 +32,13 @@
 			this.syncChange = useDebounce(
 				() => {
 					if (this.lastValidInputVal === null) return;
-					updateCompEdit(editorState.resourceName, {
-						[this.keyName]: this.lastValidInputVal
-					});
+					updateCompEdit(
+						editorState().resourceName,
+						{
+							[this.keyName]: this.lastValidInputVal
+						},
+						comps
+					);
 					this.syncHook?.();
 				},
 				() => 1000
@@ -305,16 +311,20 @@
 </script>
 
 <script lang="ts">
+	import { getContext, onDestroy, untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
-	import { allComponentTags } from '../store.svelte';
-	import { editorState } from '../url.svelte';
-	import { comps, updateCompEdit, type CompParts } from './libraryeditor.svelte';
+
+	import { allComponentTags } from '../store.svelte.js';
+	import { Comps, updateCompEdit } from './libraryeditor.svelte.js';
 	import { useDebounce, watch } from 'runed';
 	import { calculateTotalOffset, findNodeFromOffset } from '../editors/css/CSSEditor.svelte';
-	import { getContext, onDestroy, untrack } from 'svelte';
-	import { deepEqual } from '../helper';
-	import { type TempMutationRecord } from '../documents/docsyncing';
+	import { deepEqual } from '../helper.js';
+	import { type TempMutationRecord } from '../documents/docsyncing.js';
+	import type { EditorState } from '../App.svelte';
+	import type { ComponentMeta } from '#lib/types.js';
 
+	const comps: Comps = getContext('comps');
+	const editorState: () => EditorState = getContext('editorState');
 	const syncFakeMutation: (mutation: TempMutationRecord) => void = getContext('syncFakeMutation');
 
 	// // Represents the component data saved in the database
@@ -348,10 +358,14 @@
 			if (/^[0-9]/.test(val)) return "Name can't start with a numeral";
 			if (!/^[a-z0-9\-_]*$/i.test(val))
 				return 'Name must only contain alphanumeric characters, "-" and "_"';
-			if (comps.lib.some((comp) => comp.identName !== comps.current.identName && comp.name === val))
+			if (
+				comps.lib.some((comp) => comp.identName !== comps.current?.identName && comp.name === val)
+			)
 				return 'Duplicate name';
 			return null;
 		},
+		comps,
+		editorState,
 		() =>
 			// We add this fake mutation when syncing component name changes, to make sure
 			//  that the component body receives the change to the name as well (in all of the
@@ -367,14 +381,14 @@
 			})
 	);
 
-	const descriptionState = new InputState('description', () => null);
+	const descriptionState = new InputState('description', () => null, comps, editorState);
 
 	let tagsEditorEl: HTMLElement | null = $state(null);
 	const syncTagsChange = useDebounce(
 		(tags: string[]) => {
 			// if (!tagsEditorEl) return;
 			// const tags = TagsEditor.parseTagsStr(tagsEditorEl.textContent ?? "");
-			updateCompEdit(editorState.resourceName, { tags: tags.join(',') });
+			updateCompEdit(editorState().resourceName, { tags }, comps);
 		},
 		() => 1000
 	);
@@ -422,7 +436,7 @@
 		if (!tagsEditorEl) return;
 		untrack(() => {
 			console.log('SET TAGS');
-			tagsEditor.setTags(comps.current.tags?.split(',') ?? [], tagsEditorEl!);
+			tagsEditor.setTags(comps.current?.tags ?? [], tagsEditorEl!);
 		});
 	});
 
@@ -440,13 +454,13 @@
 	}}
 />
 
-<div class="text-rock-700 my-4 text-center text-xl italic">Edit the current component metadata</div>
+<div class="my-4 text-center text-xl text-rock-700 italic">Edit the current component metadata</div>
 
 <div class="mx-auto flex max-w-lg items-stretch px-4 text-lg">
-	<label for="edit-name" class="text-rock-700 flex items-center">Name:</label>
+	<label for="edit-name" class="flex items-center text-rock-700">Name:</label>
 	<div class="relative mx-3 grow">
 		<input
-			class="border-rock-300 text-rock-600 inset-shadow-rock-200 ring-steel-200 w-full rounded border-2 bg-white px-3 py-1.5 font-mono inset-shadow-none outline-none focus:ring-4 [.error]:border-red-300 [.error]:focus:ring-red-200"
+			class="w-full rounded border-2 border-rock-300 bg-white px-3 py-1.5 font-mono text-rock-600 inset-shadow-none ring-steel-200 inset-shadow-rock-200 outline-none focus:ring-4 [.error]:border-red-300 [.error]:focus:ring-red-200"
 			class:error={nameState.inputErr}
 			type="text"
 			name="edit-name"
@@ -460,16 +474,16 @@
 			</div>
 		{/if}
 	</div>
-	{#if comps.current.name !== undefined && nameState.inputVal !== comps.savedCurrent.name}
+	{#if comps.current?.name !== undefined && nameState.inputVal !== comps.savedCurrent?.name}
 		<div class="mr-3">
 			<!-- The transition:fade is important so that the button click isn't
        registered as "not within the dropdown" hence causing it to close. -->
 			<button
 				transition:fade={{ duration: 100 }}
-				class="text-rock-700 hover:bg-rock-100 mr-3 flex aspect-square h-full items-center justify-center rounded text-2xl"
+				class="mr-3 flex aspect-square h-full items-center justify-center rounded text-2xl text-rock-700 hover:bg-rock-100"
 				aria-label="Reset value"
 				onclick={() => {
-					if (comps.savedCurrent.name === undefined) return;
+					if (comps.savedCurrent?.name === undefined) return;
 					nameState.inputVal = comps.savedCurrent.name ?? null;
 				}}><ion-icon name="refresh"></ion-icon></button
 			>
@@ -478,10 +492,10 @@
 </div>
 
 <div class="mx-auto mt-5 flex max-w-lg items-center px-4">
-	<label for="edit-description" class="text-rock-700 text-lg">Description:</label>
+	<label for="edit-description" class="text-lg text-rock-700">Description:</label>
 	<div class="relative mx-3 grow">
 		<textarea
-			class="border-rock-300 text-rock-600 inset-shadow-rock-200 ring-steel-200 w-full rounded border-2 bg-white px-3 py-1.5 text-base inset-shadow-none outline-none focus:ring-4 [.error]:border-red-300 [.error]:focus:ring-red-200"
+			class="w-full rounded border-2 border-rock-300 bg-white px-3 py-1.5 text-base text-rock-600 inset-shadow-none ring-steel-200 inset-shadow-rock-200 outline-none focus:ring-4 [.error]:border-red-300 [.error]:focus:ring-red-200"
 			class:error={descriptionState.inputErr}
 			name="edit-description"
 			id="edit-description"
@@ -493,15 +507,15 @@
 			</div>
 		{/if}
 	</div>
-	{#if comps.savedCurrent.description !== undefined && descriptionState.inputVal !== comps.savedCurrent.description}
+	{#if comps.savedCurrent?.description !== undefined && descriptionState.inputVal !== comps.savedCurrent.description}
 		<!-- The transition:fade is important so that the button click isn't
        registered as "not within the dropdown" hence causing it to close. -->
 		<button
 			transition:fade={{ duration: 100 }}
-			class="text-rock-700 hover:bg-rock-100 mr-3 flex aspect-square items-center justify-center rounded p-1.5 text-2xl"
+			class="mr-3 flex aspect-square items-center justify-center rounded p-1.5 text-2xl text-rock-700 hover:bg-rock-100"
 			aria-label="Reset value"
 			onclick={() => {
-				if (comps.savedCurrent.description === undefined) return;
+				if (comps.savedCurrent?.description === undefined) return;
 				descriptionState.inputVal = comps.savedCurrent.description ?? null;
 			}}><ion-icon name="refresh"></ion-icon></button
 		>
@@ -509,7 +523,7 @@
 </div>
 
 <div class="mx-auto mt-5 flex max-w-lg px-4">
-	<label for="edit-tags" class="text-rock-700 flex items-center text-lg">Tags:</label>
+	<label for="edit-tags" class="flex items-center text-lg text-rock-700">Tags:</label>
 	<div
 		role="application"
 		spellcheck="false"
@@ -518,29 +532,29 @@
 		bind:this={tagsEditorEl}
 		oninput={(e) => tagsEditorEl && tagsEditor.onInput(tagsEditorEl)}
 		onkeydown={(e) => tagsEditor.onKeydown(e)}
-		class="text-rock-600 mx-3 flex flex-wrap font-mono outline-none"
+		class="mx-3 flex flex-wrap font-mono text-rock-600 outline-none"
 	></div>
-	{#if comps.savedCurrent.tags !== undefined && tagsEditor.parsedTags.join(',') !== comps.savedCurrent.tags}
+	{#if comps.savedCurrent?.tags !== undefined && tagsEditor.parsedTags.join(',') !== comps.savedCurrent?.tags.join(',')}
 		<!-- The transition:fade is important so that the button click isn't
        registered as "not within the dropdown" hence causing it to close. -->
 		<button
 			transition:fade={{ duration: 100 }}
-			class="text-rock-700 hover:bg-rock-100 mr-3 ml-auto flex aspect-square items-center justify-center rounded p-1.5 text-2xl"
+			class="mr-3 ml-auto flex aspect-square items-center justify-center rounded p-1.5 text-2xl text-rock-700 hover:bg-rock-100"
 			aria-label="Reset value"
 			onclick={() => {
-				if (!tagsEditorEl || comps.savedCurrent.tags === undefined) return;
-				tagsEditor.setTags(comps.savedCurrent.tags.split(','), tagsEditorEl);
+				if (!tagsEditorEl || comps.savedCurrent?.tags === undefined) return;
+				tagsEditor.setTags(comps.savedCurrent.tags, tagsEditorEl);
 			}}><ion-icon name="refresh"></ion-icon></button
 		>
 	{/if}
 </div>
 
 <style>
-	@reference "/shared/tailwindinit.css";
+	@reference "../ui/tailwindinit.css";
 
 	:global {
 		#edit-tags-comp span:not(.space) {
-			@apply border-rock-300 my-2 block rounded border-2 bg-white p-0.5;
+			@apply my-2 block rounded border-2 border-rock-300 bg-white p-0.5;
 		}
 		#edit-tags-comp span.new {
 			@apply border-dashed;
@@ -549,11 +563,11 @@
 			@apply border-red-300;
 		}
 		#edit-tags-comp span.error::before {
-			@apply bg-background absolute inline-block translate-y-[calc(100%+(--spacing(1)))] font-sans text-sm text-nowrap text-red-500 italic;
+			@apply absolute inline-block translate-y-[calc(100%+(--spacing(1)))] bg-background font-sans text-sm text-nowrap text-red-500 italic;
 			content: var(--errormsg);
 		}
 		#edit-tags-comp:focus span.focused {
-			@apply ring-steel-200 ring-4;
+			@apply ring-4 ring-steel-200;
 		}
 	}
 </style>

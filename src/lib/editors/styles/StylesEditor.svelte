@@ -1,26 +1,25 @@
 <script lang="ts">
-	import {
-		doc,
-		mode,
-		savedComponents,
-		type DocCSSRule,
-		type SavedComponent,
-		type SavedComponentWithEdit
-	} from '../../store.svelte';
-	import CSSEditor, { parseStylesStr } from '../css/CSSEditor.svelte';
-	import FitContentInput from '/shared/components/FitContentInput.svelte';
-	import { setContext } from 'svelte';
-	import { StyleCache } from '../css/AllStyleEditors.svelte';
+	import { getContext, setContext } from 'svelte';
 	import DotsSixVerticalIcon from 'phosphor-svelte/lib/DotsSixVerticalIcon';
 	import WarningIcon from 'phosphor-svelte/lib/WarningIcon';
-	import ComponentTray from '../../components/ComponentTray.svelte';
-	import { parseStylesheetStr } from '../../documents/DocStyles.svelte';
-	import { changePage, editorState } from '../../url.svelte';
 	import WrenchIcon from 'phosphor-svelte/lib/WrenchIcon';
-	import { getCompNameAndPart } from '../../components/component.svelte';
-	import LinkBreakIcon from 'phosphor-svelte/lib/LinkBreakIcon';
 	import CaretRightIcon from 'phosphor-svelte/lib/CaretRightIcon';
 	import CaretDownIcon from 'phosphor-svelte/lib/CaretDownIcon';
+	import LinkBreakIcon from 'phosphor-svelte/lib/LinkBreakIcon';
+
+	import { mode, savedComponents, type Doc, type DocCSSRule } from '../../store.svelte.js';
+	import CSSEditor, { parseStylesStr } from '../css/CSSEditor.svelte';
+	import FitContentInput from '../../ui/FitContentInput.svelte';
+	import { StyleCache } from '../css/AllStyleEditors.svelte';
+	import ComponentTray from '../../components/ComponentTray.svelte';
+	import { parseStylesheetStr } from '../../documents/DocStyles.svelte';
+	import { getCompNameAndPart } from '../../components/component.svelte.js';
+	import type { DocumentEditorProps } from '../../App.svelte';
+	import type { Component, ComponentWithOptionalEditInfo } from '#lib/types.js';
+
+	const doc: Doc = getContext('doc');
+	const editorState: () => DocumentEditorProps['editorState'] = getContext('editorState');
+	const doChangePage: () => DocumentEditorProps['doChangePage'] = getContext('doChangePage');
 
 	const styleCache = new StyleCache();
 	setContext('styleCache', styleCache);
@@ -39,7 +38,7 @@
 		mode.sidebar = 'styles';
 	}
 
-	function addRuleComponent(comp: SavedComponent) {
+	function addRuleComponent(comp: Component) {
 		const parsed = parseStylesheetStr(comp.content);
 		console.log('When adding style-type component, parsed:', parsed);
 
@@ -47,9 +46,14 @@
 		mode.sidebar = 'styles';
 	}
 
-	function selectComponentEdit(comp: SavedComponentWithEdit) {
-		if (editorState.mode !== 'document') return;
-		changePage('component', comp.identName, editorState.resourceName);
+	function selectComponentEdit(comp: ComponentWithOptionalEditInfo) {
+		if (editorState().mode !== 'document') return;
+
+		doChangePage()({
+			mode: 'component',
+			resourceName: comp.identName ?? comp.name,
+			documentRedirect: editorState().resourceName
+		});
 	}
 
 	function breakInheritance(groupI: number) {
@@ -86,7 +90,7 @@
 		for (let i = 0; i < doc.styles.length; i++) {
 			const rule = doc.styles[i];
 
-			if (rule.compInheritance !== null && editorState.mode !== 'component') {
+			if (rule.compInheritance !== null && editorState().mode !== 'component') {
 				const [compName] = getCompNameAndPart(rule.compInheritance);
 				const prev = final.at(-1);
 				if (prev?.isComp && prev?.compName === compName) {
@@ -97,7 +101,7 @@
 					let compTags: string[] = [];
 					if (compInfo) {
 						compDesc = compInfo.description ?? '';
-						compTags = compInfo.tags?.split(',') ?? [];
+						compTags = compInfo.tags ?? [];
 					} else {
 						// prettier-ignore
 						console.warn("Wasn't able to find matching component in component library for style-type component", rule, "savedComponents: ", savedComponents);
@@ -135,7 +139,7 @@
 
 {#snippet ruleControls(i: number, numInGroup: number)}
 	<button
-		class="hover:text-rock-700 move-glyph text-base"
+		class="move-glyph text-base hover:text-rock-700"
 		onmousedown={(e) => {
 			if (e.target instanceof Element) {
 				e.target.closest('.doccssrule-drag-item')?.setAttribute('draggable', 'true');
@@ -170,7 +174,7 @@
 		{/if}
 		<FitContentInput
 			type="text"
-			class="bg-steel-100 text-steel-800 ring-steel-300/50 box-content rounded px-1.5 py-1 font-mono focus:ring-2 focus:outline-none"
+			class="box-content rounded bg-steel-100 px-1.5 py-1 font-mono text-steel-800 ring-steel-300/50 focus:ring-2 focus:outline-none"
 			placeholder="CSS rule selector"
 			bind:value={rule.selector}
 		/>
@@ -186,7 +190,7 @@
 		{#each stylesGrouped as group, i}
 			{const rules = $derived(group.styles)}
 			<li
-				class="doccssrule-drag-item [.dropzone-active]:bg-rock-100/50 border-steel-300 flex flex-col items-center py-3 [.dropzone-active-down]:border-b-4 [.dropzone-active-up]:border-t-4 [.ghost-item]:opacity-70"
+				class="doccssrule-drag-item flex flex-col items-center border-steel-300 py-3 [.dropzone-active]:bg-rock-100/50 [.dropzone-active-down]:border-b-4 [.dropzone-active-up]:border-t-4 [.ghost-item]:opacity-70"
 				class:drag-target={dragSource >= 0}
 				data-i={i}
 				ondragstart={(e) => {
@@ -277,32 +281,32 @@
 				{:else}
 					{let compInheritedInfoOpen = $state(false)}
 					<div
-						class="text-rock-800 relative mx-auto my-2 inline-flex w-fit items-center gap-2 text-center text-xl"
+						class="relative mx-auto my-2 inline-flex w-fit items-center gap-2 text-center text-xl text-rock-800"
 					>
 						<span class="absolute -ml-2 -translate-x-full text-nowrap">
 							<button
-								class="text-steel-600 hover:bg-steel-100 hover:active:bg-steel-200 hover:active:text-steel-700 flex items-center rounded p-1 text-2xl hover:active:translate-y-0.5"
+								class="flex items-center rounded p-1 text-2xl text-steel-600 hover:bg-steel-100 hover:active:translate-y-0.5 hover:active:bg-steel-200 hover:active:text-steel-700"
 								title="Break inheritance of element from component"
 								aria-label="Break inheritance of element from component"
 								onclick={() => breakInheritance(i)}><LinkBreakIcon weight="bold" /></button
 							>
 						</span>
-						<span class="bg-rock-100 rounded px-3 py-1.5" class:hidden={group.compName === null}
+						<span class="rounded bg-rock-100 px-3 py-1.5" class:hidden={group.compName === null}
 							>{group.compName}</span
 						>{@render ruleControls(i, group.styles.length)}
 					</div>
-					<div class="text-rock-700 mb-1 text-lg italic" class:hidden={group.compDesc === null}>
+					<div class="mb-1 text-lg text-rock-700 italic" class:hidden={group.compDesc === null}>
 						{group.compDesc}
 					</div>
-					<div class="text-rock-700 text-lg/9 italic" class:hidden={group.compTags === null}>
+					<div class="text-lg/9 text-rock-700 italic" class:hidden={group.compTags === null}>
 						{#each group.compTags as tag}
-							<span class="bg-rock-50 border-rock-200 rounded border px-1 py-0.5">{tag}</span>
+							<span class="rounded border border-rock-200 bg-rock-50 px-1 py-0.5">{tag}</span>
 							&nbsp;
 						{/each}
 					</div>
 
 					<button
-						class="text-rock-700 hover:text-rock-600 mr-auto flex items-center text-lg"
+						class="mr-auto flex items-center text-lg text-rock-700 hover:text-rock-600"
 						onclick={() => (compInheritedInfoOpen = !compInheritedInfoOpen)}
 					>
 						Inherited CSS rules
@@ -318,11 +322,11 @@
 							{const parsedDeclarationsHTML = $derived(parseStylesStr(rule.declarations)[0])}
 
 							<div class="my-3 flex flex-col items-center gap-1.5">
-								<div class="bg-rock-100 text-steel-800 box-content rounded px-1.5 py-1 font-mono">
+								<div class="box-content rounded bg-rock-100 px-1.5 py-1 font-mono text-steel-800">
 									{rule.selector}
 								</div>
 								<div
-									class="styles-display text-rock-700 bg-rock-100 inline-block rounded p-2 text-left font-mono text-sm"
+									class="styles-display inline-block rounded bg-rock-100 p-2 text-left font-mono text-sm text-rock-700"
 								>
 									{@html parsedDeclarationsHTML}
 								</div>
@@ -331,14 +335,14 @@
 					{/if}
 				{/if}
 			</li>
-			<span class="bg-rock-300 block h-px last-of-type:h-0"></span>
+			<span class="block h-px bg-rock-300 last-of-type:h-0"></span>
 		{/each}
 	</ul>
-	<div class="bg-rock-300 mt-6 h-px w-full text-center">
+	<div class="mt-6 h-px w-full bg-rock-300 text-center">
 		<button
-			class="bg-background text-rock-400 hover:text-rock-200 inline-block -translate-y-1/2 px-2 text-xl"
+			class="inline-block -translate-y-1/2 bg-background px-2 text-xl text-rock-400 hover:text-rock-200"
 			onclick={() => {
-				if (editorState.mode === 'document') {
+				if (editorState().mode === 'document') {
 					mode.sidebar = 'stylesadd';
 				} else {
 					addRuleEmpty();
@@ -351,7 +355,7 @@
 		{let createEmptyBtnFocused = $state(false)}
 		<button
 			type="button"
-			class="border-rock-400 text-rock-600 bg-rock-100 hover:bg-rock-200 ring-rock-200 relative rounded border-2 px-3 py-2 text-lg shadow-inner shadow-white focus:ring-4 focus:outline-none"
+			class="relative rounded border-2 border-rock-400 bg-rock-100 px-3 py-2 text-lg text-rock-600 shadow-inner shadow-white ring-rock-200 hover:bg-rock-200 focus:ring-4 focus:outline-none"
 			onclick={() => {
 				addRuleEmpty();
 			}}
@@ -362,10 +366,11 @@
 			}}
 			>Create Empty Rule
 			<span
-				class="text-rock-400 absolute right-0 bottom-0 translate-y-full text-sm italic"
+				class="absolute right-0 bottom-0 translate-y-full text-sm text-rock-400 italic"
 				class:hidden={!createEmptyBtnFocused}>(press enter)</span
 			></button
 		>
+		s
 	</div>
 
 	<ComponentTray

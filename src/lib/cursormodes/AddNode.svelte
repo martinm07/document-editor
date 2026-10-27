@@ -1,6 +1,6 @@
 <script module lang="ts">
-	import { prevSibling, nextSibling, firstChild, lastChild, closestAttribute } from '../helper';
-	import { isNotBody, isHistoryNotBody } from '../App.svelte';
+	import { prevSibling, nextSibling, firstChild, lastChild, closestAttribute } from '../helper.js';
+	import { isNotBody, isHistoryNotBody, type EditorState } from '../App.svelte';
 
 	export type Rect = { x: number; y: number; w: number; h: number };
 	// Represents line segment locked only to a change in x or a change in y (but not both)
@@ -314,13 +314,14 @@
 </script>
 
 <script lang="ts">
-	import { onDestroy, getContext } from 'svelte';
+	import { getContext } from 'svelte';
 	import { watch } from 'runed';
-	import { mode, selection } from '../store.svelte';
-	import { type IEditText } from './EditText.svelte';
-	import { request2AnimationFrames } from '/shared/helper';
-	import { editorState } from '../url.svelte';
 
+	import { mode, selection } from '../store.svelte.js';
+	import { type IEditText } from './EditText.svelte';
+	import { request2AnimationFrames } from '../helper.js';
+
+	const editorState: () => EditorState = getContext('editorState');
 	const getDocEl: () => HTMLElement = getContext('getDocEl');
 	const docEl = getDocEl();
 
@@ -401,7 +402,7 @@
 
 			// We cannot modify a potential-location to turn it into the actual node, as the document syncer ignores potential-location elements.
 			const newEl = document.createElement(active.tagName.toLowerCase());
-			if (editorState.mode !== 'component') newEl.classList.add('temp-added');
+			if (editorState().mode !== 'component') newEl.classList.add('temp-added');
 			newEl.innerHTML = '&nbsp;';
 			// We also MUST insert the element BEFORE the potential-location, as the document syncer uses the previousSibling to determine
 			//  how to patch the document HTML string, and it causes an error if the previous sibling is the ignored potential-location element.
@@ -411,7 +412,7 @@
 
 			setSelection(newEl);
 			// editText();
-			if (editorState.mode !== 'component') mode.sidebar = 'addcomponent';
+			if (editorState().mode !== 'component') mode.sidebar = 'addcomponent';
 			mode.cursor = 'select';
 			request2AnimationFrames(() => {
 				// const selection = getSelection();

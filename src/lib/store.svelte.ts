@@ -1,10 +1,11 @@
 import { writable, type Writable } from 'svelte/store';
-import { elsListConnected } from './helper';
-import { PersistedState, useDebounce } from 'runed';
-import type { CompLibUpgradeInfo } from './components/libraryupgrade';
 import { SvelteMap } from 'svelte/reactivity';
-import type { CompTypeStr } from './components/component.svelte';
-import type { CompiledModule, LintDiagnostic } from './svelte/compiler';
+import { PersistedState, useDebounce } from 'runed';
+
+import { elsListConnected } from './helper.js';
+import type { CompLibUpgradeInfo } from './components/libraryupgrade.js';
+import type { CompiledModule, LintDiagnostic } from './svelte/compiler.js';
+import type { CompLibEdit, Component } from './types.js';
 
 type CursorMode = 'select' | 'edit' | 'add' | 'move' | 'noselect';
 type SidebarMode =
@@ -58,35 +59,35 @@ export const maskedAttributes: MaskAttribute[] = [];
 
 /////////////////////////////////////////// DOCUMENT INFO
 
-export interface DocumentInfo {
-	id: string;
+// export interface DocumentInfo {
+// 	id: string;
 
-	title: string;
-	description: string;
-	tags: string[];
-	accent: string;
-	thumbnail: string;
+// 	title: string;
+// 	description: string;
+// 	tags: string[];
+// 	accent: string;
+// 	thumbnail: string;
 
-	// status: "featured" | "public" | "unlisted" | "private";
-	status: string;
+// 	// status: "featured" | "public" | "unlisted" | "private";
+// 	status: string;
 
-	// body: string;
-	componentLibVer: string;
-}
+// 	// body: string;
+// 	componentLibVer: string;
+// }
 
-export type TDocMetaFields =
-	'id' | 'title' | 'description' | 'tags' | 'accent' | 'thumbnail' | 'status' | 'componentLibVer';
+// export type TDocMetaFields =
+// 	'id' | 'title' | 'description' | 'tags' | 'accent' | 'thumbnail' | 'status' | 'componentLibVer';
 
-export const docMetaFields = [
-	'id',
-	'title',
-	'description',
-	'tags',
-	'accent',
-	'thumbnail',
-	'status',
-	'componentLibVer'
-];
+// export const docMetaFields = [
+// 	'id',
+// 	'title',
+// 	'description',
+// 	'tags',
+// 	'accent',
+// 	'thumbnail',
+// 	'status',
+// 	'componentLibVer'
+// ];
 
 export interface DocCSSRule {
 	selector: string;
@@ -121,35 +122,47 @@ interface DocSvelteMountFailOrCompiling {
 
 export type DocSvelteMount = DocSvelteMountSuccess | DocSvelteMountFailOrCompiling;
 
-export const emptyDocInfo: () => DocumentInfo = () => ({
-	id: '',
-	title: '',
-	description: '',
-	tags: [],
-	accent: '',
-	thumbnail: '',
-	status: '',
-	componentLibVer: ''
-});
+// export const emptyDocInfo: () => DocumentInfo = () => ({
+// 	id: '',
+// 	title: '',
+// 	description: '',
+// 	tags: [],
+// 	accent: '',
+// 	thumbnail: '',
+// 	status: '',
+// 	componentLibVer: ''
+// });
 
-class Doc {
-	info: DocumentInfo = $state(emptyDocInfo());
+export class GenericDoc<Meta extends { [key: string]: any }> {
+	metaPropNames: () => { [K in keyof Meta]-?: true };
+
+	info: Meta | null = $state(null);
+
+	id: string = $state('');
 	body: string = $state('');
 	styles: DocCSSRule[] = $state([]);
+	compLibVer: string = $state('');
+
 	svelteCompMounts: DocSvelteMount[] = $state([]);
 
 	infoFetched = $state(false);
 	is404 = $state(false);
 	// savedInfo: DocumentInfo =
 
+	constructor(metaPropNames: () => { [K in keyof Meta]-?: true }) {
+		this.metaPropNames = metaPropNames;
+	}
+
 	resetDocInfo() {
-		this.info = emptyDocInfo();
+		this.info = null;
 		this.body = '';
 		this.styles = [];
 	}
 }
 
-export const doc = new Doc();
+export type Doc = InstanceType<typeof GenericDoc<any>>;
+
+// export const doc = new Doc();
 
 interface DocumentTag {
 	name: string;
@@ -176,25 +189,6 @@ export const mediaFiles: string[] = $state([]);
 export const fetchedMediaFiles: { yes: boolean } = { yes: false };
 
 /////////////////////////////////////////// COMPONENT LIBRARY
-
-export interface SavedComponent {
-	// id: string;
-	identName: string;
-	name: string;
-	type: CompTypeStr;
-	content: string;
-	parts: string;
-	description?: string;
-	tags?: string;
-}
-
-export type SavedComponentOptionalIdentName = Omit<SavedComponent, 'identName'> & {
-	identName?: string;
-};
-
-export type SavedComponentWithEdit = SavedComponent & {
-	state?: 'unmodified' | 'modified' | 'added' | 'removed';
-};
 
 // const savedComps_: SavedComponent[] = [
 // {
@@ -228,39 +222,37 @@ export type SavedComponentWithEdit = SavedComponent & {
 // },
 // ];
 
-// export const savedComponents: Writable<SavedComponent[]> =
-//   writable(savedComps_);
-export const savedComponents: SavedComponent[] = $state([]);
+export const savedComponents: Component[] = $state([]);
 
 export type PropsList = [k: string, v: string][];
 export const compPartToInheritedAttrs: Map<string, PropsList> = new SvelteMap();
 
 export const allComponentTags: string[] = $state([]);
 
-class CompLib {
+export class CompLib {
+	doc: Doc;
+	constructor(doc: Doc) {
+		this.doc = doc;
+
+		this.isLibUpToDate = $derived(
+			this.doc.info?.componentLibVer !== null &&
+				this.latestVer !== null &&
+				this.doc.info?.componentLibVer === this.latestVer
+		);
+
+		this.isVersFetched = $derived(
+			this.doc.info?.componentLibVer !== null && this.latestVer !== null
+		);
+	}
+
 	latestVer: string | null = $state(null);
 
-	isLibUpToDate: boolean = $derived(
-		doc.info.componentLibVer !== null &&
-			this.latestVer !== null &&
-			doc.info.componentLibVer === this.latestVer
-	);
-	isVersFetched: boolean = $derived(doc.info.componentLibVer !== null && this.latestVer !== null);
+	isLibUpToDate: boolean;
+	isVersFetched: boolean;
 
 	upgradeInfo: CompLibUpgradeInfo | null = $state(null);
 }
-export const compLib = new CompLib();
-
-interface CompLibEdit {
-	editType: 'add' | 'remove' | 'edit';
-	identName: string;
-	name?: string;
-	type?: CompTypeStr;
-	content?: string;
-	parts?: string;
-	description?: string;
-	tags?: string;
-}
+// export const compLib = new CompLib();
 
 export const compLibEdits = new PersistedState<CompLibEdit[]>('compLibEdits', []);
 
@@ -276,7 +268,7 @@ interface LocalSaveDocEntry {
 interface LocalSaveLibEntry {
 	version: string;
 	lastUsed: number;
-	comps: SavedComponent[];
+	comps: Component[];
 	definedTags?: string[];
 }
 

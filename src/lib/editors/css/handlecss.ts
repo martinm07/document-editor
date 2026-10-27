@@ -5,7 +5,7 @@ import {
 	specificityGreater,
 	type CSSRuleAnalysis,
 	type SpecificityVal
-} from './CSSUtilities';
+} from './CSSUtilities.js';
 import firefoxStylesPath from './firefoxDefaultCSS.txt';
 
 const parseSelector = createParser();

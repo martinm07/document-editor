@@ -5,12 +5,17 @@
 </script>
 
 <script lang="ts">
+	import { getContext } from 'svelte';
 	import { watch } from 'runed';
-	import { doc, docMetaFields, type DocumentInfo, type TDocMetaFields } from '../store.svelte';
-	import type { SaveDoc } from './docsaving.svelte';
-	import { deepEqual } from '../helper';
-	import { type TempMutationRecord } from './docsyncing';
-	import { editorState } from '../url.svelte';
+	import type { SaveDoc } from './docsaving.svelte.js';
+	import { deepEqual } from '../helper.js';
+	import { type TempMutationRecord } from './docsyncing.js';
+	import type { Doc } from '../store.svelte.js';
+	import type { DocumentEditorProps } from '../App.svelte';
+	// import { editorState } from '../url.svelte';
+
+	const doc: Doc = getContext('doc');
+	const metaPropNames: () => DocumentEditorProps['metaPropNames'] = getContext('metaPropNames');
 
 	interface Props {
 		docEl: HTMLElement;
@@ -18,76 +23,83 @@
 	}
 	let { docEl, docSaver }: Props = $props();
 
-	$inspect(doc.info.id);
+	$inspect(doc.info?.id);
 
-	function updateStateForMetaEl(metaContainer: HTMLElement) {
-		const field_ = metaContainer.dataset.field; // i.e. attribute "data-field"
-		if (field_ && docMetaFields.includes(field_)) {
-			const field = field_ as TDocMetaFields;
+	// function updateStateForMetaEl(metaContainer: HTMLElement) {
+	// 	const fields = Object.keys(metaPropNames());
 
-			updateDocInfo: if (field === 'tags') {
-				const oldTags = doc.info['tags'];
-				const tags = Array.from(metaContainer.children).map((child) => child.textContent);
+	// 	const field_ = metaContainer.dataset.field; // i.e. attribute "data-field"
+	// 	if (field_ && fields.includes(field_)) {
+	// 		const field = field_;
 
-				// If the tags haven't changed, then DON'T make an assignment to doc.info
-				if (oldTags.length === tags.length && oldTags.every((oldTag, i) => oldTag === tags[i]))
-					break updateDocInfo;
+	// 		updateDocInfo: if (field === 'tags') {
+	// 			const oldTags = doc.info?.['tags'];
+	// 			const tags = Array.from(metaContainer.children).map((child) => child.textContent);
 
-				doc.info.tags = tags;
-			} else if (doc.info[field] !== metaContainer.textContent) {
-				// If the content hasn't changed, DON'T assign to doc.info
-				doc.info[field] = metaContainer.textContent;
-			}
-		} else {
-			console.error(
-				`There is an element with the class 'document-meta-data' but not a 'data-field' attribute of a valid value: `,
-				metaContainer
-			);
-		}
-	}
+	// 			// If the tags haven't changed, then DON'T make an assignment to doc.info
+	// 			if (oldTags.length === tags.length && oldTags.every((oldTag, i) => oldTag === tags[i]))
+	// 				break updateDocInfo;
+
+	// 			doc.info.tags = tags;
+	// 		} else if (doc.info[field] !== metaContainer.textContent) {
+	// 			// If the content hasn't changed, DON'T assign to doc.info
+	// 			doc.info[field] = metaContainer.textContent;
+	// 		}
+	// 	} else {
+	// 		console.error(
+	// 			`There is an element with the class 'document-meta-data' but not a 'data-field' attribute of a valid value: `,
+	// 			metaContainer
+	// 		);
+	// 	}
+	// }
 
 	export function informMetaUpdate(mutations: TempMutationRecord[]) {
 		// if (!doc.infoFetched) return;
 		// return;
-		for (const mutation of mutations) {
-			// We can rule out all attributes mutations, as there many only be characterData or childList for tags
-			if (mutation.type === 'attributes') continue;
-
-			const target =
-				mutation.type === 'childList' ? (mutation.addedNode ?? mutation.target) : mutation.target;
-
-			const parentEl = !(target instanceof Element) ? target.parentElement : target;
-			const metaEl = parentEl?.closest('.document-meta-data');
-			const targetIsMetaContainer =
-				target instanceof HTMLElement && target.classList.contains('doc-meta');
-
-			if (doc.info && parentEl && metaEl instanceof HTMLElement) {
-				// console.log("Doing update for ", metaEl);
-				updateStateForMetaEl(metaEl);
-			} else if (doc.info && targetIsMetaContainer) {
-				Array.from(target.children).forEach((metaEl) => {
-					if (!(metaEl instanceof HTMLElement)) return;
-					updateStateForMetaEl(metaEl);
-				});
-			}
-		}
+		// for (const mutation of mutations) {
+		// 	// We can rule out all attributes mutations, as there many only be characterData or childList for tags
+		// 	if (mutation.type === 'attributes') continue;
+		// 	const target =
+		// 		mutation.type === 'childList' ? (mutation.addedNode ?? mutation.target) : mutation.target;
+		// 	const parentEl = !(target instanceof Element) ? target.parentElement : target;
+		// 	const metaEl = parentEl?.closest('.document-meta-data');
+		// 	const targetIsMetaContainer =
+		// 		target instanceof HTMLElement && target.classList.contains('doc-meta');
+		// 	if (doc.info && parentEl && metaEl instanceof HTMLElement) {
+		// 		// console.log("Doing update for ", metaEl);
+		// 		updateStateForMetaEl(metaEl);
+		// 	} else if (doc.info && targetIsMetaContainer) {
+		// 		Array.from(target.children).forEach((metaEl) => {
+		// 			if (!(metaEl instanceof HTMLElement)) return;
+		// 			updateStateForMetaEl(metaEl);
+		// 		});
+		// 	}
+		// }
 	}
 
 	// Server sync
-	watch(
-		() => $state.snapshot(doc.info),
-		(curr, prev) => {
-			if (editorState.mode === 'document' && !deepEqual(curr, prev)) {
-				docSaver.syncDocMetadataDebounce(curr);
-			}
-		},
-		{
-			lazy: true
-		}
-	);
+	// watch(
+	// 	() => $state.snapshot(doc.info),
+	// 	(curr, prev) => {
+	// 		if (editorState.mode === 'document' && !deepEqual(curr, prev)) {
+	// 			docSaver.syncDocMetadataDebounce(doc.info.id, curr);
+	// 		}
+	// 	},
+	// 	{
+	// 		lazy: true
+	// 	}
+	// );
 </script>
 
-<div class="doc-meta history-not-body">
+<div
+	class="doc-meta history-not-body"
+	{@attach (containerEl) => {
+		// if (!doc.info) return;
+		$state.snapshot(doc.info);
+	}}
+></div>
+
+<!-- <div class="doc-meta history-not-body">
 	<pre class="document-meta-data" data-field="id">{doc.info ? doc.info.id : ''}</pre>
 	<pre class="document-meta-data" data-field="componentLibVer">{doc.info
 			? doc.info.componentLibVer
@@ -126,7 +138,7 @@
 			});
 		}}
 	></div>
-</div>
+</div> -->
 
 <style>
 	.doc-meta {
@@ -135,8 +147,8 @@
 		/*height: 100px;*/
 	}
 
-	.document-meta-data {
-		/*display: hidden;*/
-		/*display: block;*/
-	}
+	/*.document-meta-data {*/
+	/*display: hidden;*/
+	/*display: block;*/
+	/*}*/
 </style>

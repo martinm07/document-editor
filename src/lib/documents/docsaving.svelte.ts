@@ -1,38 +1,44 @@
 import { useDebounce } from 'runed';
-import { encode } from 'he';
 import {
 	generateElCompContentStr,
 	generateStyleCompContentStr
-} from '../components/component.svelte';
-import { comps, updateCompEdit } from '../components/libraryeditor.svelte';
+} from '../components/component.svelte.js';
+import { Comps, updateCompEdit } from '../components/libraryeditor.svelte.js';
 import {
 	reconstructHTMLString,
 	patchMutations,
 	type DocNodeMap,
-	type DocPatch,
 	type StringPosNodeMap,
 	type DocPatchStr,
 	generatePosNodes,
 	applyPatches,
 	getElementString
-} from './docsyncing';
-import { doc, localSave, localSaveEntryIsDoc, pruneLocalSave } from '../store.svelte';
-import { editorState } from '../url.svelte';
-import { fetch_ } from '/shared/helper';
-import { closestAttribute, DynamicStylesheet } from '../helper';
-import { isHistoryNotBodyContainer } from '../App.svelte';
-import { parseStylesheetStr } from './DocStyles.svelte';
-import type { CompilePublishInfo, SvelteCompiler } from '../svelte/compiler';
-import { P } from '/public/svelte-lib/index-client-CHdY4_o-';
+} from './docsyncing.js';
+import { localSave, localSaveEntryIsDoc, pruneLocalSave, type Doc } from '../store.svelte.js';
+import { closestAttribute, DynamicStylesheet } from '../helper.js';
+import {
+	isHistoryNotBodyContainer,
+	type DocumentEditorProps,
+	type EditorState
+} from '../App.svelte';
+import type { CompilePublishInfo, SvelteCompiler } from '../svelte/compiler.js';
+import type { DocumentMetaUpdate } from '#lib/types.js';
 
-const getDocumentID = () =>
+const getDocumentID = (editorState: EditorState) =>
 	editorState.mode === 'document' ? Number.parseInt(editorState.resourceName) : null;
-const getComponentID = () => (editorState.mode === 'component' ? editorState.resourceName : null);
+const getComponentID = (editorState: EditorState) =>
+	editorState.mode === 'component' ? editorState.resourceName : null;
 
 // Time between subsequent server syncs, in ms
 const SERVER_SYNC_INTERVAL_TIME = 5000;
 
 interface SaveDocConstructor {
+	editorState: () => DocumentEditorProps['editorState'];
+	doPatchSync: () => DocumentEditorProps['doPatchSync'];
+	doFullSync: () => DocumentEditorProps['doFullSync'];
+	doc: Doc;
+	comps: Comps;
+
 	makePatches: () => ReturnType<typeof patchMutations>;
 	getDocEl: () => HTMLElement | undefined;
 	docNodes: DocNodeMap;
@@ -42,17 +48,25 @@ interface SaveDocConstructor {
 }
 
 export class SaveDoc {
-	serverSyncInterval: number | undefined;
+	doPatchSync: () => DocumentEditorProps['doPatchSync'];
+	doFullSync: () => DocumentEditorProps['doFullSync'];
+	doc: Doc;
+	comps: Comps;
+
+	serverSyncInterval: NodeJS.Timeout | undefined;
 	serverSyncPatchesQueue: DocPatchStr[] = [];
-	prevFetch: Promise<Response> | null = null;
+	prevFetch: Promise<void> | null = null;
 	doServerSync: boolean;
 	// syncDocMetadataDebounce: (info: typeof doc.info) => void;
 	// syncDocMetadataDebounce: typeof useDebounce<Array<typeof doc.info>>;
-	syncDocMetadataDebounce: ReturnType<typeof useDebounce<[typeof doc.info], Promise<void>>>;
-	syncDocStylesDebounce: ReturnType<typeof useDebounce<[string], Promise<void>>>;
+	syncDocMetadataDebounce: ReturnType<
+		typeof useDebounce<[string, typeof this.doc.info], Promise<void>>
+	>;
+	syncDocStylesDebounce: ReturnType<typeof useDebounce<[string, string], Promise<void>>>;
 
-	prevDocumentType: typeof editorState.mode | null = null;
-	prevDocumentID: typeof editorState.resourceName | null = null;
+	editorState: () => DocumentEditorProps['editorState'];
+	prevDocumentType: DocumentEditorProps['editorState']['mode'] | null = null;
+	prevDocumentID: DocumentEditorProps['editorState']['resourceName'] | null = null;
 	// prevDocInfo: typeof doc.info | null = null;
 
 	makePatches: () => ReturnType<typeof patchMutations>;
@@ -66,22 +80,28 @@ export class SaveDoc {
 	private appHTMLStr = '';
 
 	constructor(p: SaveDocConstructor) {
+		this.editorState = p.editorState;
+		this.doPatchSync = p.doPatchSync;
+		this.doFullSync = p.doFullSync;
+		this.doc = p.doc;
+		this.comps = p.comps;
+
 		if (SERVER_SYNC_INTERVAL_TIME > 0)
 			this.serverSyncInterval = setInterval(
-				() => this.syncServerDocPatch(getDocumentID()),
+				() => this.syncServerDocPatch(getDocumentID(p.editorState())),
 				SERVER_SYNC_INTERVAL_TIME
 			);
 
 		this.syncDocMetadataDebounce = useDebounce(
-			(info: typeof doc.info) => {
-				return this.syncDocMetadata(info);
+			(documentID: string, info: typeof this.doc.info) => {
+				return this.syncDocMetadata(documentID, info);
 			},
 			() => SERVER_SYNC_INTERVAL_TIME
 		);
 
 		this.syncDocStylesDebounce = useDebounce(
-			(styles: string) => {
-				return this.syncDocStyles(styles);
+			(documentID: string, styles: string) => {
+				return this.syncDocStyles(documentID, styles);
 			},
 			() => SERVER_SYNC_INTERVAL_TIME
 		);
@@ -102,8 +122,8 @@ export class SaveDoc {
 	save(): ReturnType<typeof patchMutations> {
 		// Check if the loaded document just changed
 		if (
-			this.prevDocumentType !== editorState.mode ||
-			this.prevDocumentID !== editorState.resourceName
+			this.prevDocumentType !== this.editorState().mode ||
+			this.prevDocumentID !== this.editorState().resourceName
 		) {
 			// Flush the serverSyncPatches queue
 			if (this.prevDocumentType === 'document' && this.prevDocumentID) {
@@ -120,17 +140,17 @@ export class SaveDoc {
 			this.stringPosNodeMap.keys().forEach((key) => this.stringPosNodeMap.delete(key));
 
 			let syncedHTMLStr: string | undefined;
-			if (editorState.mode === 'document') {
+			if (this.editorState().mode === 'document') {
 				syncedHTMLStr = this.syncDocFull();
-			} else if (editorState.mode === 'component') {
+			} else if (this.editorState().mode === 'component') {
 				syncedHTMLStr = this.syncCompLocal();
 			}
 
 			if (syncedHTMLStr === undefined) {
 				console.error('Full document sync failed.');
 			} else {
-				this.prevDocumentType = editorState.mode;
-				this.prevDocumentID = editorState.resourceName;
+				this.prevDocumentType = this.editorState().mode;
+				this.prevDocumentID = this.editorState().resourceName;
 
 				this.appHTMLStr = syncedHTMLStr;
 				return [[], new Map(), new Map(), syncedHTMLStr];
@@ -139,22 +159,22 @@ export class SaveDoc {
 
 		const [patches, historyForwardMap, historyBackwardMap, htmlStr] = this.makePatches();
 
-		if (editorState.mode === 'document') {
+		if (this.editorState().mode === 'document') {
 			// this.syncDocLocal(htmlStr);
 			this.serverSyncPatchesQueue.push(...patches.map((patch) => patch.str_));
-		} else if (editorState.mode === 'component') {
+		} else if (this.editorState().mode === 'component') {
 			this.syncCompLocal(htmlStr);
 		}
 
-		this.prevDocumentType = editorState.mode;
-		this.prevDocumentID = editorState.resourceName;
+		this.prevDocumentType = this.editorState().mode;
+		this.prevDocumentID = this.editorState().resourceName;
 
 		this.appHTMLStr = htmlStr;
 		return [patches, historyForwardMap, historyBackwardMap, htmlStr];
 	}
 
 	flushServerChanges() {
-		const bodyPromise = this.syncServerDocPatch(getDocumentID());
+		const bodyPromise = this.syncServerDocPatch(getDocumentID(this.editorState()));
 		const metaPromise = this.syncDocMetadataDebounce.runScheduledNow();
 		const stylesPromise = this.syncDocStylesDebounce.runScheduledNow();
 		return Promise.all([bodyPromise, metaPromise, stylesPromise]);
@@ -172,7 +192,7 @@ export class SaveDoc {
 	 * TODO: Can add option to sync other document info as well.
 	 */
 	syncDocFull() {
-		const documentID = getDocumentID();
+		const documentID = getDocumentID(this.editorState());
 		const docEl = this.getDocEl();
 		if (documentID === null || !docEl) return;
 
@@ -212,15 +232,18 @@ export class SaveDoc {
 		this.syncingHTMLStr = filteredHTMLStr;
 		this.syncDocLocal();
 
-		if (this.doServerSync)
-			fetch_('/documents/api/sync_document_full', {
-				method: 'post',
-				body: JSON.stringify({
-					id: documentID,
-					body: filteredHTMLStr
-				}),
-				keepalive: true
-			});
+		// if (this.doServerSync)
+		// 	fetch_('/documents/api/sync_document_full', {
+		// 		method: 'post',
+		// 		body: JSON.stringify({
+		// 			id: documentID,
+		// 			body: filteredHTMLStr
+		// 		}),
+		// 		keepalive: true
+		// 	});
+		if (this.doServerSync) {
+			this.doFullSync()(`${documentID}`, filteredHTMLStr);
+		}
 
 		return htmlStr;
 	}
@@ -231,7 +254,7 @@ export class SaveDoc {
 	 * TODO: Also sync other document info when it changes, using the local save of that info (ideally the local save has some field like "dirty" which indicates whether there
 	 *        are indeed changes that need to be synced).
 	 */
-	syncServerDocPatch(documentID: number | null): Promise<void | Response> {
+	syncServerDocPatch(documentID: number | null): Promise<void> {
 		if (documentID === null || !this.doServerSync) return Promise.resolve();
 
 		const createFetch = () => {
@@ -268,14 +291,21 @@ export class SaveDoc {
 				console.log('New server HTML string (probably):\n---------------\n', this.syncingHTMLStr);
 			}
 
-			const resp = fetch_('/documents/api/sync_document_patch', {
-				method: 'post',
-				body: JSON.stringify({
-					id: documentID,
-					patches,
-					complibver: doc.info.componentLibVer
+			// const resp = fetch_('/documents/api/sync_document_patch', {
+			// 	method: 'post',
+			// 	body: JSON.stringify({
+			// 		id: documentID,
+			// 		patches,
+			// 		complibver: doc.info.componentLibVer
+			// 	})
+			// });
+
+			const resp = Promise.resolve(
+				this.doPatchSync()(`${documentID}`, patches, {
+					compLibVer: this.doc.info?.componentLibVer
 				})
-			});
+			);
+
 			this.serverSyncPatchesQueue.splice(0, this.serverSyncPatchesQueue.length);
 			return resp;
 		};
@@ -287,49 +317,57 @@ export class SaveDoc {
 		return this.prevFetch;
 	}
 
-	async syncDocMetadata(info: typeof doc.info) {
-		if (!this.doServerSync) return;
+	async syncDocMetadata(documentID: string, info: typeof this.doc.info) {
+		if (!this.doServerSync || !info) return;
 		console.log('DOING UPDATE OF METADATA');
-		const resp = await fetch_('/documents/api/update_document_metadata', {
-			method: 'post',
-			body: JSON.stringify({
-				id: info.id.trim(),
-				title: info.title,
-				description: info.description,
-				tags: info.tags,
-				accent: info.accent,
-				thumbnail: info.thumbnail,
-				status: info.status
-			})
-		});
-		if (!resp.ok) {
-			console.log('🎈', resp);
-			console.error(await resp.text());
-			return;
-		}
+		// const resp = await fetch_('/documents/api/update_document_metadata', {
+		// 	method: 'post',
+		// 	body: JSON.stringify({
+		// 		id: info.id.trim(),
+		// 		title: info.title,
+		// 		description: info.description,
+		// 		tags: info.tags,
+		// 		accent: info.accent,
+		// 		thumbnail: info.thumbnail,
+		// 		status: info.status
+		// 	})
+		// });
+		// if (!resp.ok) {
+		// 	console.log('🎈', resp);
+		// 	console.error(await resp.text());
+		// 	return;
+		// }
 
-		const data = await resp.json();
-		doc.info.title = data['title'];
-		doc.info.description = data['description'];
-		doc.info.tags = data['tags'];
-		doc.info.accent = data['accent'];
-		doc.info.thumbnail = data['thumbnail'];
-		doc.info.status = data['status'];
+		// const data = await resp.json();
+
+		const data = await this.doPatchSync()(documentID, [], info);
+
+		// doc.info.title = data['title'];
+		// doc.info.description = data['description'];
+		// doc.info.tags = data['tags'];
+		// doc.info.accent = data['accent'];
+		// doc.info.thumbnail = data['thumbnail'];
+		// doc.info.status = data['status'];
 	}
 
-	async syncDocStyles(styles: string) {
+	async syncDocStyles(documentID: string, styles: string) {
 		if (!this.doServerSync) return;
 		console.log('DOING UPDATE OF STYLES');
-		const resp = await fetch_('/documents/api/sync_development_stylesheet', {
-			method: 'post',
-			body: JSON.stringify({
-				id: doc.info.id,
-				stylesheet: styles
-			})
-		});
-		if (!resp.ok) {
-			console.error(await resp.text());
-			return;
+		// const resp = await fetch_('/documents/api/sync_development_stylesheet', {
+		// 	method: 'post',
+		// 	body: JSON.stringify({
+		// 		id: doc.info.id,
+		// 		stylesheet: styles
+		// 	})
+		// });
+		// if (!resp.ok) {
+		// 	console.error(await resp.text());
+		// 	return;
+		// }
+		try {
+			await this.doPatchSync()(documentID, [], { stylesheet: styles });
+		} catch (err) {
+			console.error(err);
 		}
 
 		// const dataStyles = await resp.text();
@@ -337,7 +375,7 @@ export class SaveDoc {
 	}
 
 	syncDocLocal() {
-		const documentID = getDocumentID();
+		const documentID = getDocumentID(this.editorState());
 		const docEl = this.getDocEl();
 		if (documentID === null || !docEl) return;
 
@@ -350,7 +388,7 @@ export class SaveDoc {
 
 		const savedInfo = localSave.current[`D:${documentID}`];
 		if (!savedInfo) {
-			if (!doc.info.componentLibVer)
+			if (!this.doc.info?.componentLibVer)
 				throw new Error(
 					`Tried creating entry in localSave for document of ID "${documentID}" in syncDocLocal, but couldn't as compLibVer.currentVer is null.`
 				);
@@ -358,13 +396,13 @@ export class SaveDoc {
 				id: `${documentID}`,
 				lastUsed: Date.now(),
 				body: this.syncingHTMLStr,
-				compLibVer: doc.info.componentLibVer
+				compLibVer: this.doc.info.componentLibVer
 			};
 		} else if (!localSaveEntryIsDoc(savedInfo)) throw new Error("Entry wasn't for a document.");
 		else {
 			savedInfo.lastUsed = Date.now();
 			savedInfo.body = this.syncingHTMLStr;
-			savedInfo.compLibVer = doc.info.componentLibVer;
+			savedInfo.compLibVer = this.doc.info?.componentLibVer;
 			pruneLocalSave();
 		}
 	}
@@ -375,11 +413,11 @@ export class SaveDoc {
 	 * @returns
 	 */
 	syncCompLocal(htmlStr?: string) {
-		const componentID = getComponentID();
+		const componentID = getComponentID(this.editorState());
 		const docEl = this.getDocEl();
 		if (componentID === null || !docEl) return;
 
-		const comp = comps.lib.find((comp) => comp.identName === componentID);
+		const comp = this.comps.lib.find((comp) => comp.identName === componentID);
 		if (!comp) return;
 
 		// The reconstructHTMLString creates the HTML string for the document, taking
@@ -417,12 +455,12 @@ export class SaveDoc {
 				comp.name
 			);
 
-			updateCompEdit(componentID, { content, parts });
+			updateCompEdit(componentID, { content, parts: parts.split('|') }, this.comps);
 		} else if (comp.type === 'style') {
-			const { content, parts } = generateStyleCompContentStr(doc.styles, comp.name);
-			updateCompEdit(componentID, { content, parts });
+			const { content, parts } = generateStyleCompContentStr(this.doc.styles, comp.name);
+			updateCompEdit(componentID, { content, parts: parts.split('|') }, this.comps);
 		} else if (comp.type === 'svelte') {
-			updateCompEdit(componentID, { content: doc.body });
+			updateCompEdit(componentID, { content: this.doc.body }, this.comps);
 		}
 
 		return htmlStr;

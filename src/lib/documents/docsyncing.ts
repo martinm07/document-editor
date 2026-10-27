@@ -1,6 +1,6 @@
-import { getNodeParents, XHTML_NS } from '../helper';
+import { getNodeParents, XHTML_NS } from '../helper.js';
 import { isHistoryNotBody, isHistoryNotBodyContainer, isNotBody } from '../App.svelte';
-import { maskedAttributes } from '../store.svelte';
+import { maskedAttributes } from '../store.svelte.js';
 import he from 'he';
 
 export type DocNodeEntry =

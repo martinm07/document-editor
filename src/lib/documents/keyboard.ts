@@ -1,10 +1,10 @@
 import type { IAddNode } from '../cursormodes/AddNode.svelte';
 import type { IEditText } from '../cursormodes/EditText.svelte';
 import type { IMultipleSelect } from '../cursormodes/MultipleSelect.svelte';
-import type { HistoryManager } from './history';
+import type { HistoryManager } from './history.js';
 
-import { parseHTMLFragment } from '../helper';
-import { selection, mode } from '../store.svelte';
+import { parseHTMLFragment } from '../helper.js';
+import { selection, mode } from '../store.svelte.js';
 
 interface EditorInterfaceKeyboard {
 	multipleSelect?: IMultipleSelect;

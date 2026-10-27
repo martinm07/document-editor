@@ -1,7 +1,11 @@
 import { rollup, type OutputAsset, type OutputChunk, type Plugin } from '@rollup/browser';
 import { compile, compileModule, type Warning, type CompileError } from 'svelte/compiler';
-import { type BundlerReplyMessage, type BundlerSendMessage, type LintDiagnostic } from './compiler';
-import helperModule from './helpermodule.svelte?raw';
+import {
+	type BundlerReplyMessage,
+	type BundlerSendMessage,
+	type LintDiagnostic
+} from './compiler.js';
+import helperModule from './helpermodule.svelte.js?raw';
 
 const isSvelteCompileError = (x: unknown): x is CompileError =>
 	x instanceof Error && 'code' in x && 'start' in x && 'end' in x;

@@ -1,4 +1,3 @@
-import { svelte } from '@replit/codemirror-lang-svelte';
 import { type Component, type MountOptions } from 'svelte';
 
 export interface LintDiagnostic {

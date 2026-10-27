@@ -1,17 +1,17 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
+	import { watch } from 'runed';
+	import UpdateDocLib from '../components/UpdateDocLib.svelte';
+	import ArrowArcLeftIcon from 'phosphor-svelte/lib/ArrowArcLeftIcon';
+	import HouseIcon from 'phosphor-svelte/lib/HouseIcon';
+
 	import AttributesEditor, {
 		type Attribute,
 		type IAttributesEditor
 	} from '../editors/attributes/AttributesEditor.svelte';
 	import AllStyleEditors, { type IAllStyleEditors } from '../editors/css/AllStyleEditors.svelte';
 	import TagNameEditor from '../editors/tag/TagNameEditor.svelte';
-	import { selection, mode, compLib, doc } from '../store.svelte';
-	import { watch } from 'runed';
-	import { changePage, editorState } from '../url.svelte';
-	import UpdateDocLib from '../components/UpdateDocLib.svelte';
-	import ArrowArcLeftIcon from 'phosphor-svelte/lib/ArrowArcLeftIcon';
-	import HouseIcon from 'phosphor-svelte/lib/HouseIcon';
+	import { selection, mode, type Doc, CompLib } from '../store.svelte.js';
 	import { deepEqual } from '../helper';
 	import ComponentInfo from '../components/ComponentInfo.svelte';
 	import LibraryEditorViewComponents from './LibraryEditorViewComponents.svelte';
@@ -19,9 +19,16 @@
 	import DocumentViewComponents from './DocumentViewComponents.svelte';
 	import ChangeToComponent from './ChangeToComponent.svelte';
 	import StylesEditor from '../editors/styles/StylesEditor.svelte';
-	import { comps } from '../components/libraryeditor.svelte';
 	import SvelteEditor from '../svelte/SvelteEditor.svelte';
 	import SvelteComponentInfo from '../svelte/SvelteComponentInfo.svelte';
+	import type { DocumentEditorProps } from '../App.svelte';
+	import type { Comps } from '#lib/components/libraryeditor.svelte.ts';
+
+	const doc: Doc = getContext('doc');
+	const comps: Comps = getContext('comps');
+	const compLib: CompLib = getContext('compLib');
+	const editorState: () => DocumentEditorProps['editorState'] = getContext('editorState');
+	const doChangePage: () => DocumentEditorProps['doChangePage'] = getContext('doChangePage');
 
 	const updateHighlight: () => void = getContext('updateHighlight');
 
@@ -35,7 +42,7 @@
 	let selectionHasComponents = $derived.by(() => {
 		currentAttrs.length;
 		return (
-			editorState.mode === 'document' &&
+			editorState().mode === 'document' &&
 			selection.main.some((el) => el.getAttribute('data-component'))
 		);
 	});
@@ -62,20 +69,22 @@
 	//   },
 	// );
 
-	const elementEditMode = $derived(mode.sidebar === 'edit' && comps.current.type !== 'svelte');
-	const svelteEditMode = $derived(mode.sidebar === 'edit' && comps.current.type === 'svelte');
+	const elementEditMode = $derived(mode.sidebar === 'edit' && comps.current?.type !== 'svelte');
+	const svelteEditMode = $derived(mode.sidebar === 'edit' && comps.current?.type === 'svelte');
 </script>
 
-{#if editorState.documentRedirect && mode.sidebar === 'edit'}
+{#if editorState().documentRedirect && mode.sidebar === 'edit'}
 	<button
 		aria-label="Return to document"
-		class="border-rock-100 text-rock-600 bg-background hover:bg-rock-100 hover:active:bg-rock-200 hover:active:text-rock-700 hover:active:border-rock-200 absolute top-2 left-2 z-10 aspect-square rounded-lg border-2 p-2 text-2xl hover:active:translate-y-1"
+		class="absolute top-2 left-2 z-10 aspect-square rounded-lg border-2 border-rock-100 bg-background p-2 text-2xl text-rock-600 hover:bg-rock-100 hover:active:translate-y-1 hover:active:border-rock-200 hover:active:bg-rock-200 hover:active:text-rock-700"
 		onclick={() => {
-			changePage(
-				editorState.mode === 'component' ? 'document' : 'component',
-				editorState.documentRedirect!,
-				null
-			);
+			const returnPage = editorState().documentRedirect;
+			if (!returnPage) return;
+			doChangePage()({
+				mode: editorState().mode === 'component' ? 'document' : 'component',
+				resourceName: returnPage,
+				documentRedirect: null
+			});
 		}}
 	>
 		<ArrowArcLeftIcon weight="bold" />
@@ -83,7 +92,7 @@
 {:else if mode.sidebar === 'edit'}
 	<a
 		aria-label="Go to documents admin view"
-		class="border-rock-100 text-rock-600 bg-background hover:bg-rock-100 hover:active:bg-rock-200 hover:active:text-rock-700 hover:active:border-rock-200 absolute top-2 left-2 z-10 aspect-square rounded-lg border-2 p-2 text-2xl hover:active:translate-y-1"
+		class="absolute top-2 left-2 z-10 aspect-square rounded-lg border-2 border-rock-100 bg-background p-2 text-2xl text-rock-600 hover:bg-rock-100 hover:active:translate-y-1 hover:active:border-rock-200 hover:active:bg-rock-200 hover:active:text-rock-700"
 		href="/documents/admin"
 	>
 		<HouseIcon weight="bold" />

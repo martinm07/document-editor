@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { circInOut } from 'svelte/easing';
-	import { compLib, mode } from '../store.svelte';
-	import { editorState } from '../url.svelte';
+	import { CompLib, mode, type Doc } from '../store.svelte';
 
 	import ComponentMetaEdit, {
 		dClassComponentMetaEdit
@@ -15,7 +14,15 @@
 	import XIcon from 'phosphor-svelte/lib/XIcon';
 	import ImagesSquareIcon from 'phosphor-svelte/lib/ImagesSquareIcon';
 	import PaintBrushBroadIcon from 'phosphor-svelte/lib/PaintBrushBroadIcon';
-	import { comps } from '../components/libraryeditor.svelte';
+	import type { EditorState } from '#lib/App.svelte';
+	import { getContext } from 'svelte';
+	import type { Comps } from '#lib/components/libraryeditor.svelte.ts';
+	// import { comps } from '../components/libraryeditor.svelte';
+
+	const editorState: () => EditorState = getContext('editorState');
+	// const doc: Doc = getContext("doc");
+	const comps: Comps = getContext('comps');
+	const compLib: CompLib = getContext('compLib');
 
 	const dropdownContainerClass = $derived.by(() => {
 		switch (mode.dropdown) {
@@ -60,21 +67,23 @@
 	}}
 />
 
-<div class="bg-rock-100/70 border-rock-300 flex border-r-2 p-1.5">
+<div class="flex border-r-2 border-rock-300 bg-rock-100/70 p-1.5">
 	<button
-		class="complib-btn hover:bg-rock-200/70 text-rock-800 border-rock-300 [.active]:bg-background [.active]:hover:bg-rock-200/70 relative mr-0.5 flex aspect-square h-full items-center justify-center rounded text-2xl [.active]:border"
+		class="complib-btn relative mr-0.5 flex aspect-square h-full items-center justify-center rounded border-rock-300 text-2xl text-rock-800 hover:bg-rock-200/70 [.active]:border [.active]:bg-background [.active]:hover:bg-rock-200/70"
 		aria-label="View component library"
 		title="View component library"
 		class:active={mode.sidebar === 'viewcomponent'}
-		class:warn={compLib.isVersFetched && !compLib.isLibUpToDate && editorState.mode === 'document'}
+		class:warn={compLib.isVersFetched &&
+			!compLib.isLibUpToDate &&
+			editorState().mode === 'document'}
 		onclick={() => {
 			if (mode.sidebar === 'viewcomponent') mode.sidebar = 'edit';
 			else mode.sidebar = 'viewcomponent';
 		}}><SquaresFour /></button
 	>
-	{#if editorState.mode === 'document' || comps.current.type === 'element'}
+	{#if editorState().mode === 'document' || comps.current?.type === 'element'}
 		<button
-			class="hover:bg-rock-200/70 text-rock-800 border-rock-300 [.active]:bg-background [.active]:hover:bg-rock-200/70 mr-0.5 flex aspect-square h-full items-center justify-center rounded text-2xl [.active]:border"
+			class="mr-0.5 flex aspect-square h-full items-center justify-center rounded border-rock-300 text-2xl text-rock-800 hover:bg-rock-200/70 [.active]:border [.active]:bg-background [.active]:hover:bg-rock-200/70"
 			aria-label="View node tree"
 			title="View node tree"
 			class:active={mode.sidebar === 'viewer'}
@@ -84,9 +93,9 @@
 			}}><TreeView /></button
 		>
 	{/if}
-	{#if editorState.mode === 'document' || comps.current.type === 'style'}
+	{#if editorState().mode === 'document' || comps.current?.type === 'style'}
 		<button
-			class="hover:bg-rock-200/70 text-rock-800 border-rock-300 [.active]:bg-background [.active]:hover:bg-rock-200/70 flex aspect-square h-full items-center justify-center rounded text-2xl [.active]:border"
+			class="flex aspect-square h-full items-center justify-center rounded border-rock-300 text-2xl text-rock-800 hover:bg-rock-200/70 [.active]:border [.active]:bg-background [.active]:hover:bg-rock-200/70"
 			aria-label="Edit global styles"
 			title="Edit global styles"
 			class:active={mode.sidebar.startsWith('styles')}
@@ -99,9 +108,9 @@
 </div>
 
 <div class="mr-2 ml-auto flex">
-	{#if editorState.mode === 'component'}
+	{#if editorState().mode === 'component'}
 		<button
-			class="text-rock-700 hover:bg-rock-100 m-1.5 flex aspect-square cursor-pointer items-center justify-center rounded text-3xl"
+			class="m-1.5 flex aspect-square cursor-pointer items-center justify-center rounded text-3xl text-rock-700 hover:bg-rock-100"
 			class:bg-rock-100={mode.dropdown === 'compmetaedit'}
 			aria-label="Configure component metadata"
 			onclick={() => {
@@ -109,9 +118,9 @@
 				else mode.dropdown = 'compmetaedit';
 			}}><ListIcon /></button
 		>
-	{:else if editorState.mode === 'document'}
+	{:else if editorState().mode === 'document'}
 		<button
-			class="text-rock-700 hover:bg-rock-100 m-1.5 flex aspect-square cursor-pointer items-center justify-center rounded text-3xl"
+			class="m-1.5 flex aspect-square cursor-pointer items-center justify-center rounded text-3xl text-rock-700 hover:bg-rock-100"
 			class:bg-rock-100={mode.dropdown === 'mediatray'}
 			aria-label="Configure component metadata"
 			onclick={() => {
@@ -124,7 +133,7 @@
 		</button>
 
 		<button
-			class="text-rock-700 hover:bg-rock-100 m-1.5 flex aspect-square cursor-pointer items-center justify-center rounded text-3xl"
+			class="m-1.5 flex aspect-square cursor-pointer items-center justify-center rounded text-3xl text-rock-700 hover:bg-rock-100"
 			class:bg-rock-100={mode.dropdown === 'docmetaedit'}
 			aria-label="Configure component metadata"
 			onclick={() => {
@@ -159,7 +168,7 @@
 
 	.complib-btn.warn::after {
 		content: '!';
-		@apply bg-rock-100/70 absolute -right-0.75 -bottom-0.75 text-3xl leading-[0.9] font-bold text-yellow-500;
+		@apply absolute -right-0.75 -bottom-0.75 bg-rock-100/70 text-3xl leading-[0.9] font-bold text-yellow-500;
 	}
 	.complib-btn.warn.active::after {
 		@apply bg-background;

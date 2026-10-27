@@ -1,21 +1,25 @@
 <script lang="ts">
+	import { getContext, onMount } from 'svelte';
+	import { watch, watchOnce } from 'runed';
 	import WarningDiamond from 'phosphor-svelte/lib/WarningDiamondIcon';
 	import ArrowRight from 'phosphor-svelte/lib/ArrowRightIcon';
 	import ArrowBendUpLeftIcon from 'phosphor-svelte/lib/ArrowBendUpLeftIcon';
 	import CheckIcon from 'phosphor-svelte/lib/CheckIcon';
-	import { compLib, doc, mode, savedComponents, type SavedComponent } from '../store.svelte';
-	import { changePage, editorState } from '../url.svelte';
-	import { getContext, onMount } from 'svelte';
-	import {
-		componentTypeToString,
-		loadComponentLibrary,
-		type GetCompLibFetchReturn
-	} from './component.svelte';
-	import { fetch_ } from '/shared/helper';
-	import { upgradeDoc, type CompLibUpgradeInfo } from './libraryupgrade';
-	import type { DynamicStylesheet } from '../helper';
-	import { watch, watchOnce } from 'runed';
 
+	import { CompLib, mode, savedComponents, type Doc } from '../store.svelte.js';
+	import { loadComponentLibrary } from './component.svelte.js';
+	import { upgradeDoc, type CompLibUpgradeInfo } from './libraryupgrade.js';
+	import type { DynamicStylesheet } from '../helper.js';
+	import type { DocumentEditorProps } from '../App.svelte';
+	import type { Component } from '#lib/types.js';
+
+	const doc: Doc = getContext('doc');
+	const compLib: CompLib = getContext('compLib');
+	const editorState: () => DocumentEditorProps['editorState'] = getContext('editorState');
+	// const doChangePage: () => DocumentEditorProps['doChangePage'] = getContext("doChangePage");
+	const getCompLib: () => DocumentEditorProps['getCompLib'] = getContext('getCompLib');
+	const getLatestCompLibVersion: () => DocumentEditorProps['getLatestCompLibVersion'] =
+		getContext('getLatestCompLibVersion');
 	const getDocEl: () => HTMLElement = getContext('getDocEl');
 	const bookmarkState: () => () => void = getContext('bookmarkState');
 	const getComponentElStyles: () => DynamicStylesheet<string> = getContext('getComponentElStyles');
@@ -48,14 +52,14 @@
 	let submitMsg: string = $state('');
 
 	let restoreState: () => void | undefined;
-	let oldComponentLibrary: SavedComponent[] | undefined;
+	let oldComponentLibrary: Component[] | undefined;
 
 	let fetchedCompLibVer = false;
 	let oldCompLibVer: string = $state('');
 	watch(
-		() => doc.info.componentLibVer,
+		() => doc.info?.componentLibVer,
 		() => {
-			if (fetchedCompLibVer || !doc.info.componentLibVer) return;
+			if (fetchedCompLibVer || !doc.info?.componentLibVer) return;
 			oldCompLibVer = doc.info.componentLibVer;
 			fetchedCompLibVer = true;
 		}
@@ -71,19 +75,20 @@
 		submitStatus = 'idle';
 		submitMsg = 'Fetching latest component library...';
 
-		let resp = await fetch_('/documents/api/get_component_library');
-		if (!resp.ok) {
-			submitStatus = 'error';
-			submitMsg = 'Unexpected error while fetching the latest component library. Try again later.';
-			return;
-		}
-		const data: GetCompLibFetchReturn = await resp.json();
+		const latestVersion = await getLatestCompLibVersion()();
+		const library = await getCompLib()(latestVersion);
+		// if (!resp.ok) {
+		// 	submitStatus = 'error';
+		// 	submitMsg = 'Unexpected error while fetching the latest component library. Try again later.';
+		// 	return;
+		// }
+		// const data: GetCompLibFetchReturn = await resp.json();
 
-		data.library.forEach((comp) => {
-			comp.type = componentTypeToString(comp.type);
-		});
+		// library.forEach((comp) => {
+		// 	comp.type = componentTypeToString(comp.type);
+		// });
 
-		if (data.version !== upgradeInfo.to_version) {
+		if (latestVersion !== upgradeInfo.to_version) {
 			submitStatus = 'error';
 			submitMsg = 'Current upgrade information is stale. Please reload the page.';
 			return;
@@ -95,26 +100,26 @@
 		mode.inCompLibUpgrade = true;
 		restoreState = bookmarkState();
 
-		oldCompLibVer = doc.info.componentLibVer;
+		oldCompLibVer = doc.info?.componentLibVer;
 		oldComponentLibrary = $state.snapshot(savedComponents);
 
 		try {
-			doc.info.componentLibVer = upgradeInfo.to_version;
+			if (doc.info) doc.info.componentLibVer = upgradeInfo.to_version;
 
-			upgradeDoc(getDocEl(), oldComponentLibrary, data.library, $state.snapshot(upgradeInfo));
+			upgradeDoc(getDocEl(), doc, oldComponentLibrary, library, $state.snapshot(upgradeInfo));
 
 			// componentElStyles.clear();
-			// data.library.forEach((comp) =>
+			// library.forEach((comp) =>
 			//   setComponentStyles(comp, componentElStyles),
 			// );
-			loadComponentLibrary(data.library, 'document', componentElStyles);
+			loadComponentLibrary(library, 'document', componentElStyles);
 		} catch (err) {
 			submitStatus = 'error';
 			submitMsg = 'INTERNAL ERROR' + (err instanceof Error ? ': ' + err.message : '');
 
 			mode.disabled = false;
 			setTimeout(() => (mode.inCompLibUpgrade = false));
-			doc.info.componentLibVer = oldCompLibVer;
+			if (doc.info) doc.info.componentLibVer = oldCompLibVer;
 
 			// componentElStyles.clear();
 			// savedComponents.forEach((comp) =>
@@ -132,7 +137,7 @@
 
 <div
 	class="rounded border-2 border-yellow-300 bg-yellow-50"
-	class:hidden={editorState.mode !== 'document' || !mode.sidebar.includes('component')}
+	class:hidden={editorState().mode !== 'document' || !mode.sidebar.includes('component')}
 >
 	<button
 		class="peer group flex w-full items-center justify-around py-1 font-serif text-lg text-yellow-700 hover:cursor-pointer hover:bg-yellow-100"
@@ -160,7 +165,7 @@
 					Upgrade Library
 				</button>
 				{#if submitStatus === 'idle'}
-					<div class="text-rock-500 text-center italic">
+					<div class="text-center text-rock-500 italic">
 						{submitMsg}
 					</div>
 				{:else if submitStatus === 'error'}

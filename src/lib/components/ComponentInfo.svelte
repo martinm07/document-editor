@@ -10,8 +10,8 @@
 		compPartToInheritedAttrs,
 		type PropsList
 	} from '../store.svelte';
-	import { breakInheritance, getCompNameAndPart } from './component.svelte';
-	import { splitStringAtChar } from '../editors/css/handlecss';
+	import { breakInheritance, getCompNameAndPart } from './component.svelte.js';
+	import { splitStringAtChar } from '../editors/css/handlecss.js';
 	import { stylesIntersection } from '../editors/css/CSSEditor.svelte';
 	import { isHiddenAttribute, type Attribute } from '../editors/attributes/AttributesEditor.svelte';
 
@@ -65,7 +65,7 @@
 		currentAttrs.length;
 		const comp = savedComponents.find((comp) => comp.name === compName);
 		if (!comp) return null;
-		else return comp.tags?.split(',') ?? [];
+		else return comp.tags ?? [];
 	});
 
 	let compInheritedInfoOpen = $state(true);
@@ -230,40 +230,40 @@
 </script>
 
 {#if compsSelected}
-	<div class="text-rock-800 relative my-2 w-full text-xl [:not(.hidden)]:inline-block">
+	<div class="relative my-2 w-full text-xl text-rock-800 [:not(.hidden)]:inline-block">
 		<span
 			class="absolute -ml-2 -translate-y-0.5 text-nowrap [.only-child]:right-3 [:not(.only-child)]:-translate-x-full"
 			class:hidden={!compsSelected}
 			class:only-child={compName === null}
 		>
 			<button
-				class="text-steel-600 hover:bg-steel-100 hover:active:bg-steel-200 hover:active:text-steel-700 flex items-center rounded p-1 text-2xl hover:active:translate-y-0.5"
+				class="flex items-center rounded p-1 text-2xl text-steel-600 hover:bg-steel-100 hover:active:translate-y-0.5 hover:active:bg-steel-200 hover:active:text-steel-700"
 				title="Break inheritance of element from component"
 				aria-label="Break inheritance of element from component"
 				onclick={() => breakInheritance(selection.main)}><LinkBreakIcon weight="bold" /></button
 			>
 		</span>
-		<span class="bg-rock-100 rounded px-3 py-1.5" class:hidden={compName === null}>{compName}</span>
+		<span class="rounded bg-rock-100 px-3 py-1.5" class:hidden={compName === null}>{compName}</span>
 		<span class="absolute ml-2 text-nowrap" class:hidden={!compPart}
-			><span class="text-rock-600 mr-1">∋</span><span class="inline-block -translate-y-px"
+			><span class="mr-1 text-rock-600">∋</span><span class="inline-block -translate-y-px"
 				>{compPart}</span
 			></span
 		>
 	</div>
-	<div class="text-rock-700 mb-1 text-lg italic" class:hidden={compDescription === null}>
+	<div class="mb-1 text-lg text-rock-700 italic" class:hidden={compDescription === null}>
 		{compDescription}
 	</div>
-	<div class="text-rock-700 text-lg/9 italic" class:hidden={compTags === null}>
+	<div class="text-lg/9 text-rock-700 italic" class:hidden={compTags === null}>
 		{#each compTags as tag}
-			<span class="bg-rock-50 border-rock-200 rounded border px-1 py-0.5">{tag}</span>
+			<span class="rounded border border-rock-200 bg-rock-50 px-1 py-0.5">{tag}</span>
 			&nbsp;
 		{/each}
 	</div>
 
-	<div class:hidden={compName === null} class="bg-rock-200 my-3 h-0.5"></div>
+	<div class:hidden={compName === null} class="my-3 h-0.5 bg-rock-200"></div>
 
 	<button
-		class="text-rock-700 hover:text-rock-600 mt-4 flex items-center justify-start text-lg"
+		class="mt-4 flex items-center justify-start text-lg text-rock-700 hover:text-rock-600"
 		class:hidden={compName === null}
 		onclick={() => (compInheritedInfoOpen = !compInheritedInfoOpen)}
 	>
@@ -277,19 +277,19 @@
 
 	{#if compInheritedInfoOpen && mode.sidebar === 'edit' && compName !== null}
 		<div class="mt-3">
-			<span class="bg-rock-100 text-rock-700 rounded p-2 font-mono text-lg font-bold"
+			<span class="rounded bg-rock-100 p-2 font-mono text-lg font-bold text-rock-700"
 				>&lt;{inheritedTagName}&gt;</span
 			>
 		</div>
 		{#each inheritedStyles.entries() as [stylesAttr, propsList]}
 			<div class="my-4">
 				{#if stylesAttr}
-					<div class="text-rock-700 flex items-center justify-center font-mono text-lg">
+					<div class="flex items-center justify-center font-mono text-lg text-rock-700">
 						{stylesAttr}
 					</div>
 				{/if}
 				<div
-					class="styles-display text-rock-700 bg-rock-100 inline-block rounded p-2 text-left font-mono text-sm"
+					class="styles-display inline-block rounded bg-rock-100 p-2 text-left font-mono text-sm text-rock-700"
 				>
 					{#each propsList as prop}
 						<b>{prop[0]}</b><span class="colon">:</span><em>{prop[1]}</em><span class="semic"
@@ -301,16 +301,16 @@
 		{/each}
 		<div class="h-1"></div>
 		{#each inheritedAttributes as { name, value, overridden }}
-			<div class="text-rock-700 my-3 flex flex-wrap items-center justify-center font-mono text-sm">
+			<div class="my-3 flex flex-wrap items-center justify-center font-mono text-sm text-rock-700">
 				<div
 					class:overridden
-					class="bg-rock-100 [.overridden]:text-rock-500 m-0.5 box-content max-w-[calc(100%-8px)] rounded p-1 font-bold text-wrap"
+					class="m-0.5 box-content max-w-[calc(100%-8px)] rounded bg-rock-100 p-1 font-bold text-wrap [.overridden]:text-rock-500"
 				>
 					{name}
 				</div>
 				<div
 					class:overridden
-					class="bg-rock-100 [.overridden]:text-rock-500 m-0.5 box-content max-w-[calc(100%-8px)] rounded p-1 text-wrap wrap-break-word"
+					class="m-0.5 box-content max-w-[calc(100%-8px)] rounded bg-rock-100 p-1 text-wrap wrap-break-word [.overridden]:text-rock-500"
 				>
 					{value}
 				</div>
@@ -318,5 +318,5 @@
 		{/each}
 	{/if}
 
-	<div class:hidden={compName === null} class="bg-rock-200 my-3 h-0.5"></div>
+	<div class:hidden={compName === null} class="my-3 h-0.5 bg-rock-200"></div>
 {/if}

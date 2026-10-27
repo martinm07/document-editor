@@ -1,10 +1,16 @@
 <script lang="ts">
+	import { getContext } from 'svelte';
 	import { fly } from 'svelte/transition';
-	import { compLibEdits } from '../store.svelte';
-	import { editorState } from '../url.svelte';
-	import { saveLibChanges, discardLibChanges } from './libraryeditor.svelte';
-	import { tada } from '/shared/helper';
 	import TrashIcon from 'phosphor-svelte/lib/TrashIcon';
+
+	import { compLibEdits } from '../store.svelte.js';
+	import { saveLibChanges, discardLibChanges } from './libraryeditor.svelte.js';
+	import { tada } from '../helper.js';
+	import type { DocumentEditorProps, EditorState } from '../App.svelte';
+
+	const editorState: () => EditorState = getContext('editorState');
+	const doCompLibUpdate: () => DocumentEditorProps['doCompLibUpdate'] =
+		getContext('doCompLibUpdate');
 
 	let showFullModal = $state(false);
 	let btnTempDisabled = $state(false);
@@ -24,7 +30,13 @@
 			return;
 		}
 
-		saveLibChanges(commitMsg, commitDesc, submitBtn);
+		// saveLibChanges(commitMsg, commitDesc, submitBtn);
+		saveLibChanges({
+			message: commitMsg,
+			description: commitDesc,
+			submitBtn,
+			doCompLibUpdate: doCompLibUpdate()
+		});
 	}
 </script>
 
@@ -34,10 +46,10 @@
 	}}
 />
 
-{#if showFullModal && editorState.mode === 'component' && compLibEdits.current.length > 0}
+{#if showFullModal && editorState().mode === 'component' && compLibEdits.current.length > 0}
 	<div
 		transition:fly={{ y: 48 }}
-		class="bg-background border-rock-300 fixed bottom-6 z-10 ml-[25%] h-[40%] w-1/2 rounded-lg border-2"
+		class="fixed bottom-6 z-10 ml-[25%] h-[40%] w-1/2 rounded-lg border-2 border-rock-300 bg-background"
 	>
 		<form
 			class="max-h-full w-full overflow-y-auto px-3 pt-6 pb-20"
@@ -45,14 +57,14 @@
 			onsubmit={(e) => saveChangesSubmit(e)}
 		>
 			<div class="flex items-center justify-center">
-				<label for="lib-change-msg" class="text-rock-700 mr-2.5 text-lg">Message:</label>
+				<label for="lib-change-msg" class="mr-2.5 text-lg text-rock-700">Message:</label>
 				<div class="relative max-w-96 grow">
 					<input
 						type="text"
 						name="lib-change-msg"
 						id="lib-change-msg"
 						placeholder="Briefly describing intent of changes"
-						class="border-rock-300 text-rock-800 ring-steel-200 w-full rounded border-2 bg-white px-3 py-1.5 outline-none focus:ring-4"
+						class="w-full rounded border-2 border-rock-300 bg-white px-3 py-1.5 text-rock-800 ring-steel-200 outline-none focus:ring-4"
 						bind:value={commitMsg}
 						bind:this={commitMsgInput}
 						oninput={() => {
@@ -70,17 +82,17 @@
 				</div>
 			</div>
 			<div class="mt-6 flex items-center justify-center">
-				<label for="lib-change-desc" class="text-rock-700 mr-2.5 text-lg">Description:</label>
+				<label for="lib-change-desc" class="mr-2.5 text-lg text-rock-700">Description:</label>
 				<textarea
 					name="lib-change-desc"
 					id="lib-change-desc"
 					placeholder="More complete description of changes and their intents (Optional)"
-					class="border-rock-300 text-rock-800 ring-steel-200 max-w-96 grow rounded border-2 bg-white px-3 py-1.5 outline-none focus:ring-4"
+					class="max-w-96 grow rounded border-2 border-rock-300 bg-white px-3 py-1.5 text-rock-800 ring-steel-200 outline-none focus:ring-4"
 					bind:value={commitDesc}></textarea>
 			</div>
 		</form>
 		<button
-			class="text-rock-700 absolute top-2 right-2 flex items-center justify-center text-3xl transition-transform hover:rotate-90"
+			class="absolute top-2 right-2 flex items-center justify-center text-3xl text-rock-700 transition-transform hover:rotate-90"
 			aria-label="Close"
 			onclick={() => (showFullModal = false)}
 		>
@@ -88,10 +100,10 @@
 		</button>
 	</div>
 {/if}
-{#if editorState.mode === 'component' && compLibEdits.current.length > 0}
+{#if editorState().mode === 'component' && compLibEdits.current.length > 0}
 	<div
 		transition:fly={{ y: 48 }}
-		class="shadow-rock-300 fixed bottom-6 z-20 ml-[50%] -translate-x-1/2 rounded-md shadow-lg transition-all duration-300 hover:-translate-y-1 hover:active:translate-y-0 [.inmodal]:bottom-9 [.inmodal]:shadow-none"
+		class="fixed bottom-6 z-20 ml-[50%] -translate-x-1/2 rounded-md shadow-lg shadow-rock-300 transition-all duration-300 hover:-translate-y-1 hover:active:translate-y-0 [.inmodal]:bottom-9 [.inmodal]:shadow-none"
 		class:inmodal={showFullModal}
 	>
 		<button

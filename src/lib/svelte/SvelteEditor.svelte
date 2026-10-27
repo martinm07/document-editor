@@ -1,4 +1,8 @@
 <script lang="ts">
+	import { getContext } from 'svelte';
+	import { type CompileError } from 'svelte/compiler';
+	import { useDebounce, watch } from 'runed';
+	import { encode } from 'he';
 	import {
 		keymap,
 		highlightSpecialChars,
@@ -29,19 +33,17 @@
 	import { lintGutter, lintKeymap, setDiagnosticsEffect, type Diagnostic } from '@codemirror/lint';
 	import { indentLess, indentMore } from '@codemirror/commands';
 	import { EditorView } from '@codemirror/view';
+	import { svelte } from '@replit/codemirror-lang-svelte';
 	import { espresso } from 'thememirror';
 
-	import { svelte } from '@replit/codemirror-lang-svelte';
-	import { useDebounce, watch } from 'runed';
-	import { getContext } from 'svelte';
 	import { isNotBody, isHistoryNotBody } from '../App.svelte';
-	import { type LintDiagnostic } from './compiler';
-	import { type TempMutationRecord } from '../documents/docsyncing';
-	import { doc } from '../store.svelte';
-	import { encode } from 'he';
-	import { type CompileError } from 'svelte/compiler';
-	import { comps } from '../components/libraryeditor.svelte';
+	import { type LintDiagnostic } from './compiler.js';
+	import { type TempMutationRecord } from '../documents/docsyncing.js';
+	import type { Doc } from '../store.svelte.js';
+	import type { Comps } from '../components/libraryeditor.svelte.js';
 
+	const doc: Doc = getContext('doc');
+	const comps: Comps = getContext('comps');
 	const getDocEl: () => HTMLElement = getContext('getDocEl');
 	const syncFakeMutation: (mutation: TempMutationRecord) => void = getContext('syncFakeMutation');
 
@@ -76,7 +78,7 @@
 	let sourceEl: HTMLElement | undefined;
 
 	const onChange = useDebounce(async (newValue: string) => {
-		if (comps.current.type !== 'svelte') return;
+		if (comps.current?.type !== 'svelte') return;
 
 		const docEl = getDocEl();
 
@@ -103,7 +105,7 @@
 	watch(
 		() => doc.svelteCompMounts.map((info) => info.status),
 		() => {
-			if (!sourceEl || comps.current.type !== 'svelte') return;
+			if (!sourceEl || comps.current?.type !== 'svelte') return;
 			const mountInfo = doc.svelteCompMounts.find((info) => info.mountSourceEl === sourceEl);
 			if (!mountInfo) {
 				console.error(
@@ -182,7 +184,7 @@
 	);
 </script>
 
-{#if comps.current.type === 'svelte'}
+{#if comps.current?.type === 'svelte'}
 	<div
 		class="svelte-editor mt-13 w-full bg-white"
 		{@attach (el) => {
@@ -237,7 +239,7 @@
 					]),
 					svelte(),
 					EditorView.updateListener.of((update) => {
-						if (update.docChanged && comps.current.type === 'svelte') {
+						if (update.docChanged && comps.current?.type === 'svelte') {
 							onChange(update.state.doc.toString());
 							value = update.state.doc.toString();
 							// Trigger a fake mutation so that docSaver.save() is triggered.

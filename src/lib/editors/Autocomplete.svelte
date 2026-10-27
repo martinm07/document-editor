@@ -1,11 +1,8 @@
 <script lang="ts">
-	import { getContext, untrack } from 'svelte';
-	import { activeElement, watch } from 'runed';
-	import { autocompleteMode, autocompleteSuggestions } from '../store.svelte';
-	import { ClonedSelection, isElementVisible } from '../helper';
-	import { request2AnimationFrames } from '/shared/helper';
-	import type { Attachment } from 'svelte/attachments';
-	import { SvelteMap } from 'svelte/reactivity';
+	import { getContext } from 'svelte';
+	import { watch } from 'runed';
+	import { autocompleteMode, autocompleteSuggestions } from '../store.svelte.js';
+	import { ClonedSelection, isElementVisible } from '../helper.js';
 
 	const getPrevSelection: () => ClonedSelection | null = getContext('getPrevSelection');
 
@@ -267,7 +264,7 @@
 				class:active={activeI === i}
 				onclick={() => acceptSuggestion(i)}
 				data-i={i}
-				class="bg-steel-100 hover:bg-steel-200 text-steel-600 [.active]:bg-steel-200 m-1 inline-block rounded p-1 px-2 font-mono text-sm"
+				class="m-1 inline-block rounded bg-steel-100 p-1 px-2 font-mono text-sm text-steel-600 hover:bg-steel-200 [.active]:bg-steel-200"
 				>{suggestion}</button
 			>
 			<!-- {@attach updateGroupsMap}>{suggestion}</button

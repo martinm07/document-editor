@@ -1,6 +1,6 @@
-import { getAllChildNodes, insertAfter, type DynamicGroupStylesheet } from '../helper';
-import { type DocSvelteMount } from '../store.svelte';
-import { SvelteCompiler, type CompiledModule } from './compiler';
+import { getAllChildNodes, insertAfter, type DynamicGroupStylesheet } from '../helper.js';
+import { type DocSvelteMount } from '../store.svelte.js';
+import { SvelteCompiler, type CompiledModule } from './compiler.js';
 
 interface HandleSvelteCompMountParams {
 	getSvelteCompiler: () => SvelteCompiler;

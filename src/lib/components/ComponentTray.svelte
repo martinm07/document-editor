@@ -1,21 +1,21 @@
 <script lang="ts">
 	import Fuse, { type FuseResult } from 'fuse.js';
-	import { type SavedComponent, type SavedComponentWithEdit } from '../store.svelte';
 	import { type Snippet } from 'svelte';
 	import { watch } from 'runed';
+	import type { ComponentWithOptionalEditInfo } from '#lib/types.js';
 
 	interface Props {
-		mainAction?: (comp: SavedComponentWithEdit) => void;
+		mainAction?: (comp: ComponentWithOptionalEditInfo) => void;
 		mainActionTag: 'a' | 'button' | 'none';
 
-		secondaryAction?: (comp: SavedComponentWithEdit) => void;
+		secondaryAction?: (comp: ComponentWithOptionalEditInfo) => void;
 		secondaryActionTag: 'a' | 'button' | 'none';
-		secondaryActionContent?: Snippet<[comp: SavedComponentWithEdit]>;
+		secondaryActionContent?: Snippet<[comp: ComponentWithOptionalEditInfo]>;
 		secondaryActionLabel?: string;
 
-		generateHref?: (comp: SavedComponentWithEdit) => string;
+		generateHref?: (comp: ComponentWithOptionalEditInfo) => string;
 
-		comps: SavedComponentWithEdit[];
+		comps: ComponentWithOptionalEditInfo[];
 	}
 
 	let {
@@ -32,7 +32,7 @@
 		comps
 	}: Props = $props();
 
-	const fuse = new Fuse<SavedComponentWithEdit>([], {
+	const fuse = new Fuse<ComponentWithOptionalEditInfo>([], {
 		ignoreLocation: true,
 		ignoreFieldNorm: false,
 		includeMatches: true,
@@ -127,7 +127,7 @@
 
 	let query = $state('');
 
-	let searchResults: SavedComponentWithEdit[] = $state([]);
+	let searchResults: ComponentWithOptionalEditInfo[] = $state([]);
 
 	const sortedSearchResults = $derived(
 		searchResults.toSorted((a, b) => {
@@ -167,12 +167,12 @@
 		}
 	}
 
-	function componentHasTags(comp: SavedComponentWithEdit, tags: string[]) {
-		const compTags = (comp.tags ?? '').split(',');
+	function componentHasTags(comp: ComponentWithOptionalEditInfo, tags: string[]) {
+		const compTags = comp.tags ?? [];
 		return tags.every((tag) => compTags.includes(tag));
 	}
 
-	function componentHasPhrases(comp: SavedComponentWithEdit, exactPhrases: string[]) {
+	function componentHasPhrases(comp: ComponentWithOptionalEditInfo, exactPhrases: string[]) {
 		return exactPhrases.every(
 			(phrase) =>
 				comp.name.includes(phrase) ||
@@ -182,9 +182,9 @@
 	}
 
 	function addMarksToComponent(
-		comp: SavedComponentWithEdit,
-		matches: FuseResult<SavedComponentWithEdit>['matches']
-	): SavedComponentWithEdit {
+		comp: ComponentWithOptionalEditInfo,
+		matches: FuseResult<ComponentWithOptionalEditInfo>['matches']
+	): ComponentWithOptionalEditInfo {
 		// `matches` is an array of objects, where each object specifies a different key
 		// for the comp item, and has an array `indices` where each item is a 2-tuple of numbers,
 		// giving the start and end characters for the match.
@@ -214,7 +214,7 @@
 			markedComp[keyMatches.key] = newValue;
 		}
 
-		return markedComp as unknown as SavedComponentWithEdit;
+		return markedComp as unknown as ComponentWithOptionalEditInfo;
 	}
 
 	//////////////
@@ -245,7 +245,7 @@
 			type="text"
 			placeholder="search"
 			bind:value={query}
-			class="border-rock-600 text-rock-700 bg-rock-50 ring-rock-200 w-full rounded border-2 px-2 py-1 font-mono placeholder:italic focus:ring-4 focus:outline-none"
+			class="w-full rounded border-2 border-rock-600 bg-rock-50 px-2 py-1 font-mono text-rock-700 ring-rock-200 placeholder:italic focus:ring-4 focus:outline-none"
 			oninput={() => updateSearchResults()}
 			onfocusin={() => {
 				searchBoxFocused = true;
@@ -270,10 +270,10 @@
 		/>
 		<!-- Helper box showing the syntax for search queries (when the search box is empty) -->
 		<div
-			class="border-rock-400 bg-background pointer-events-none absolute flex w-full items-center justify-center rounded-t rounded-b-lg border-2 border-t-0 py-1"
+			class="pointer-events-none absolute flex w-full items-center justify-center rounded-t rounded-b-lg border-2 border-t-0 border-rock-400 bg-background py-1"
 			class:hidden={!searchBoxFocused || query}
 		>
-			<div class="text-rock-700 inline-block">
+			<div class="inline-block text-rock-700">
 				<span class="my-0.5 inline-block"
 					><span class="mr-1 inline-block font-mono">[tag]</span><span class="text-rock-500"
 						>search within tag</span
@@ -296,14 +296,14 @@
 		{#if comp.state && comp.state !== prevState}
 			<!-- (this is purely for the component library editor) Insert a divider/header that gives the states of the following component results. -->
 			<div class="sec-title relative mx-1 flex items-center justify-center text-lg font-bold">
-				<div class="bg-rock-200 absolute h-0.5 w-full"></div>
-				<span class="bg-background text-rock-600 z-10 inline-block uppercase">{comp.state}</span>
+				<div class="absolute h-0.5 w-full bg-rock-200"></div>
+				<span class="z-10 inline-block bg-background text-rock-600 uppercase">{comp.state}</span>
 			</div>
 		{/if}
 
 		<!-- Container for component display result -->
 		<div
-			class="component-search-result [.active]:bg-rock-100 hover:bg-rock-100 focus-within:bg-rock-100 has-[.secondary-btn:hover]:bg-background! text-rock-700 relative my-1 flex scroll-mt-16 scroll-mb-4 rounded-lg p-1"
+			class="component-search-result relative my-1 flex scroll-mt-16 scroll-mb-4 rounded-lg p-1 text-rock-700 focus-within:bg-rock-100 hover:bg-rock-100 has-[.secondary-btn:hover]:bg-background! [.active]:bg-rock-100"
 			class:active
 		>
 			<!-- Main information on component (name, description, tags) -->
@@ -321,26 +321,26 @@
 							mainAction?.(comp);
 						}}
 						>{@html comp.name}
-						<span class="text-rock-600 font-mono text-xs tracking-tighter">({comp.type}-type)</span
+						<span class="font-mono text-xs tracking-tighter text-rock-600">({comp.type}-type)</span
 						></a
 					>
 				{:else if mainActionTag === 'button'}
 					<button class="breakout-interactible static font-mono" type="submit" data-i={i}
 						>{@html comp.name}
-						<span class="text-rock-600 font-mono text-xs tracking-tighter">({comp.type}-type)</span
+						<span class="font-mono text-xs tracking-tighter text-rock-600">({comp.type}-type)</span
 						></button
 					>
 				{:else}
 					<div class="static font-mono">
 						{@html comp.name}
-						<span class="text-rock-600 font-mono text-xs tracking-tighter">({comp.type}-type)</span>
+						<span class="font-mono text-xs tracking-tighter text-rock-600">({comp.type}-type)</span>
 					</div>
 				{/if}
 
-				<div class="text-rock-600 text-sm">{@html comp.description ?? ''}</div>
+				<div class="text-sm text-rock-600">{@html comp.description ?? ''}</div>
 				<div class="mt-1 w-full text-sm">
-					{#each comp.tags?.split(',') ?? [] as tag}
-						<span class="bg-steel-100 border-steel-200 m-0.5 inline-block rounded border px-0.5"
+					{#each comp.tags ?? [] as tag}
+						<span class="m-0.5 inline-block rounded border border-steel-200 bg-steel-100 px-0.5"
 							>{@html tag}</span
 						>
 					{/each}
@@ -352,7 +352,7 @@
 					<a
 						aria-label={secondaryActionLabel}
 						href={generateHref?.(comp)}
-						class="secondary-btn hover:bg-rock-100 focus:bg-rock-100 rounded-lg p-1 py-2 text-lg [.disabled]:hidden"
+						class="secondary-btn rounded-lg p-1 py-2 text-lg hover:bg-rock-100 focus:bg-rock-100 [.disabled]:hidden"
 						onclick={(e) => {
 							e.preventDefault();
 							secondaryAction?.(comp);
@@ -363,7 +363,7 @@
 				<div class="z-10 flex items-center justify-center">
 					<button
 						aria-label={secondaryActionLabel}
-						class="secondary-btn hover:bg-rock-100 focus:bg-rock-100 rounded-lg p-1 py-2 text-lg [.disabled]:hidden"
+						class="secondary-btn rounded-lg p-1 py-2 text-lg hover:bg-rock-100 focus:bg-rock-100 [.disabled]:hidden"
 						type="button"
 						onclick={(e) => {
 							e.preventDefault();
@@ -373,7 +373,7 @@
 				</div>
 			{/if}
 		</div>
-		<div class="bg-rock-200 h-0.5 last-of-type:h-0 has-[+_.sec-title]:h-0"></div>
+		<div class="h-0.5 bg-rock-200 last-of-type:h-0 has-[+_.sec-title]:h-0"></div>
 	{/each}
 </form>
 

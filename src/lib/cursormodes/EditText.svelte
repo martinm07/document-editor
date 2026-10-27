@@ -7,9 +7,8 @@
 
 <script lang="ts">
 	import { onDestroy, getContext } from 'svelte';
-	import { on } from 'svelte/events';
-	import { mode, selection } from '../store.svelte';
-	import { closest, getAllTextNodes } from '../helper';
+	import { mode, selection } from '../store.svelte.js';
+	import { closest, getAllTextNodes } from '../helper.js';
 
 	const suggestCreateNewHistoryItem: () => void = getContext('suggestCreateNewHistoryItem');
 
@@ -168,4 +167,4 @@
 		}
 	}}
 />
-<!-- <div class="absolute w-[2px] h-5 bg-black" bind:this={cursor}></div> -->
+<!-- <div class="absolute w-0.5 h-5 bg-black" bind:this={cursor}></div> -->

@@ -1,33 +1,34 @@
-import {
-	componentTypeToString,
-	decodeElComponentStr,
-	loadComponentLibrary,
-	type GetCompLibFetchReturn
-} from '../components/component.svelte';
+import { decodeElComponentStr, loadComponentLibrary } from '../components/component.svelte.js';
 import type { IMultipleSelect } from '../cursormodes/MultipleSelect.svelte';
-import { closestClass, DynamicStylesheet, parseHTMLFragment } from '../helper';
-import { isNotBody, isHistoryNotBody } from '../App.svelte';
-import type { HistoryManager } from './history';
+import { DynamicStylesheet, parseHTMLFragment } from '../helper.js';
+import {
+	isNotBody,
+	isHistoryNotBody,
+	type DocumentEditorProps,
+	type EditorState
+} from '../App.svelte';
+import type { HistoryManager } from './history.js';
 import {
 	allComponentTags,
-	allDocumentTags,
+	CompLib,
 	compLibEdits,
-	compLib,
-	doc,
 	localSave,
-	localSaveEntryIsDoc,
 	localSaveEntryIsLib,
 	mode,
 	savedComponents,
-	type SavedComponent,
-	type SavedComponentOptionalIdentName
-} from '../store.svelte';
-import { editorState } from '../url.svelte';
-import { assign, fetch_, request2AnimationFrames } from '/shared/helper';
+	type Doc
+} from '../store.svelte.js';
+import { assign, request2AnimationFrames } from '../helper.js';
 import { parseStylesheetStr } from './DocStyles.svelte';
-// import { parseStylesheetStr } from "../editors/styles/StylesEditor.svelte";
+import type { Component, EditorDocument } from '#lib/types.js';
 
 interface EditorInterfaceLoading {
+	doc: Doc;
+	compLib: CompLib;
+	editorState: () => EditorState;
+	getLatestCompLibVersion: DocumentEditorProps['getLatestCompLibVersion'];
+	getCompLib: DocumentEditorProps['getCompLib'];
+	getDoc: DocumentEditorProps['getDoc'];
 	componentElStyles: DynamicStylesheet<string>;
 	flushServerChanges: () => Promise<[void | Response, void, void]>;
 	multipleSelect?: IMultipleSelect;
@@ -35,9 +36,10 @@ interface EditorInterfaceLoading {
 	historyManager?: HistoryManager;
 }
 
-const getDocumentID = () =>
+const getDocumentID = (editorState: EditorState) =>
 	editorState.mode === 'document' ? Number.parseInt(editorState.resourceName) : null;
-const getComponentID = () => (editorState.mode === 'component' ? editorState.resourceName : null);
+const getComponentID = (editorState: EditorState) =>
+	editorState.mode === 'component' ? editorState.resourceName : null;
 
 function loadDocBody(body: Node[], p: EditorInterfaceLoading) {
 	// TODO: What replaces this?
@@ -49,7 +51,7 @@ function loadDocBody(body: Node[], p: EditorInterfaceLoading) {
 	while (p.docEl?.lastChild && isBody(p.docEl.lastChild)) p.docEl.removeChild(p.docEl.lastChild);
 	body.forEach((node) => p.docEl?.appendChild(node));
 
-	const id = `${editorState.mode}/${editorState.resourceName}`;
+	const id = `${p.editorState().mode}/${p.editorState().resourceName}`;
 	p.historyManager?.changeActiveDoc(id);
 
 	// If we are coming back from editing components in the middle
@@ -75,7 +77,7 @@ function loadDocBody(body: Node[], p: EditorInterfaceLoading) {
 }
 
 export async function loadDocument(p: EditorInterfaceLoading) {
-	const documentID = getDocumentID();
+	const documentID = getDocumentID(p.editorState());
 	if (documentID === null) return;
 	// For loss-of-service, where syncing wasn't able to be done with the server,
 	//  we rely on local storage in the meantime.
@@ -98,36 +100,52 @@ export async function loadDocument(p: EditorInterfaceLoading) {
 
 	await p.flushServerChanges();
 
-	const resp = await fetch_(`/documents/api/get_document_edit?id=${documentID}`);
+	//  const resp = await fetch_(`/documents/api/get_document_edit?id=${documentID}`);
 
-	let data;
-	if (!resp.ok) {
-		if (resp.status === 404) doc.is404 = true;
+	// let data;
+	// if (!resp.ok) {
+	// 	if (resp.status === 404) doc.is404 = true;
 
-		console.warn(
-			`Fetching document failed. Will attempt to use local store. Document ID: "${documentID}"`
-		);
-		const savedInfo = localSave.current[`D:${documentID}`];
-		if (!savedInfo) {
-			console.error(
-				`Wasn't able to find requested document stored locally. Document ID: "${documentID}"`
-			);
-			// savedComponents.splice(0, savedComponents.length);
-			data = {
-				id: documentID,
-				body: '',
-				component_lib_ver: ''
-			};
-		} else if (!localSaveEntryIsDoc(savedInfo)) throw new Error("Entry wasn't for a document.");
-		else
-			data = {
-				id: savedInfo.id,
-				body: savedInfo.body,
-				component_lib_ver: savedInfo.compLibVer
-			};
-	} else data = await resp.json();
+	// 	console.warn(
+	// 		`Fetching document failed. Will attempt to use local store. Document ID: "${documentID}"`
+	// 	);
+	// 	const savedInfo = localSave.current[`D:${documentID}`];
+	// 	if (!savedInfo) {
+	// 		console.error(
+	// 			`Wasn't able to find requested document stored locally. Document ID: "${documentID}"`
+	// 		);
+	// 		// savedComponents.splice(0, savedComponents.length);
+	// 		data = {
+	// 			id: documentID,
+	// 			body: '',
+	// 			component_lib_ver: ''
+	// 		};
+	// 	} else if (!localSaveEntryIsDoc(savedInfo)) throw new Error("Entry wasn't for a document.");
+	// 	else
+	// 		data = {
+	// 			id: savedInfo.id,
+	// 			body: savedInfo.body,
+	// 			component_lib_ver: savedInfo.compLibVer
+	// 		};
+	// } else data = await resp.json();
 
-	const componentLibVer = data['component_lib_ver'];
+	let data: EditorDocument<any>;
+	try {
+		data = await p.getDoc(`${documentID}`);
+		p.doc.infoFetched = true;
+	} catch (err) {
+		data = {
+			id: `${documentID}`,
+			body: '',
+			stylesheet: '',
+			compLibVer: ''
+		};
+		// TODO: Put this in a conditional so it only happens for actual 404 errors
+		//       Make the error given by getDoc() displayed otherwise as well, I think.
+		p.doc.is404 = true;
+	}
+
+	const componentLibVer = data.compLibVer;
 	if (typeof componentLibVer !== 'string')
 		throw new Error(
 			"'/documents/api/get_document_edit' didn't return string for key 'component_lib_ver'."
@@ -136,11 +154,11 @@ export async function loadDocument(p: EditorInterfaceLoading) {
 	localSave.current[`D:${documentID}`] = {
 		id: `${documentID}`,
 		lastUsed: Date.now(),
-		body: data['body'],
-		compLibVer: data['component_lib_ver']
+		body: data.body,
+		compLibVer: data.compLibVer
 	};
 
-	const { componentLibrary, compLibVerInfo } = await getSavedComponentLibrary(componentLibVer);
+	const componentLibrary = await p.getCompLib(componentLibVer);
 	loadComponentLibrary(componentLibrary, 'document', p.componentElStyles);
 	console.log($state.snapshot(savedComponents));
 
@@ -150,19 +168,19 @@ export async function loadDocument(p: EditorInterfaceLoading) {
 		comps: savedComponents
 	};
 
-	if (!compLibVerInfo) console.error("Couldn't fetch info about component library");
-	else {
-		compLib.upgradeInfo = {
-			to_version: compLibVerInfo.upgrade_to_version,
-			name_map: compLibVerInfo.upgrade_name_map,
-			content_list: compLibVerInfo.upgrade_content_list,
-			remove_list: compLibVerInfo.upgrade_remove_list,
-			diff_msgs: compLibVerInfo.upgrade_diff_msgs
-		};
-		compLib.latestVer = compLibVerInfo.upgrade_to_version;
-	}
+	// if (!compLibVerInfo) console.error("Couldn't fetch info about component library");
+	// else {
+	// 	compLib.upgradeInfo = {
+	// 		to_version: compLibVerInfo.upgrade_to_version,
+	// 		name_map: compLibVerInfo.upgrade_name_map,
+	// 		content_list: compLibVerInfo.upgrade_content_list,
+	// 		remove_list: compLibVerInfo.upgrade_remove_list,
+	// 		diff_msgs: compLibVerInfo.upgrade_diff_msgs
+	// 	};
+	// 	compLib.latestVer = compLibVerInfo.upgrade_to_version;
+	// }
 
-	doc.info = {
+	p.doc.info = {
 		id: `${documentID}`,
 
 		title: data['title'] ?? '',
@@ -173,11 +191,11 @@ export async function loadDocument(p: EditorInterfaceLoading) {
 		status: data['status'] ?? '',
 
 		// body: data["body"],
-		componentLibVer: data['component_lib_ver']
+		componentLibVer: data.compLibVer
 	};
-	doc.body = data['body'];
-	doc.styles = parseStylesheetStr(data['stylesheet']);
-	if (resp.ok) doc.infoFetched = true;
+	p.doc.body = data.body;
+	p.doc.styles = parseStylesheetStr(data['stylesheet']);
+	// if (resp.ok) doc.infoFetched = true;
 
 	console.groupCollapsed('Loaded data');
 	console.log(`${documentID}`);
@@ -186,59 +204,60 @@ export async function loadDocument(p: EditorInterfaceLoading) {
 	const parsedBody = parseHTMLFragment(data['body']);
 	loadDocBody(parsedBody, p);
 
-	const tagsResp = await fetch_('/documents/api/get_all_tags');
-	if (tagsResp.ok) {
-		const allTags = await tagsResp.json();
-		console.log(allTags);
-		allDocumentTags.splice(0, allDocumentTags.length, ...allTags);
-	}
+	// const tagsResp = await fetch_('/documents/api/get_all_tags');
+	// if (tagsResp.ok) {
+	// 	const allTags = await tagsResp.json();
+	// 	console.log(allTags);
+	// 	allDocumentTags.splice(0, allDocumentTags.length, ...allTags);
+	// }
 }
 
-async function getSavedComponentLibrary(ver?: string): Promise<{
-	componentLibrary: SavedComponentOptionalIdentName[];
-	compLibVerInfo?: GetCompLibFetchReturn;
-}> {
-	console.log('getting saved components library');
+// async function getSavedComponentLibrary(ver?: string): Promise<{
+// 	componentLibrary: SavedComponentOptionalIdentName[];
+// 	compLibVerInfo?: GetCompLibFetchReturn;
+// }> {
+// 	console.log('getting saved components library');
 
-	const URL = `/documents/api/get_component_library${typeof ver === 'string' ? '?ver=' + ver : ''}`;
-	const resp = await fetch_(URL);
+// 	const URL = `/documents/api/get_component_library${typeof ver === 'string' ? '?ver=' + ver : ''}`;
+// 	const resp = await fetch_(URL);
 
-	if (!resp.ok) {
-		console.warn(
-			`Fetching component library version failed. Will attempt to use local store. Version: "${ver ?? 'latest'}"`
-		);
-		const savedInfo = $state.snapshot(localSave.current[`L:${ver ?? 'latest'}`]);
-		if (!savedInfo) {
-			console.error(
-				`Wasn't able to find requested version of component library stored locally. Version: "${ver ?? 'latest'}"`
-			);
-			return { componentLibrary: [] };
-		} else if (!localSaveEntryIsLib(savedInfo))
-			throw new Error(`Entry wasn't for a component library.`);
+// 	if (!resp.ok) {
+// 		console.warn(
+// 			`Fetching component library version failed. Will attempt to use local store. Version: "${ver ?? 'latest'}"`
+// 		);
+// 		const savedInfo = $state.snapshot(localSave.current[`L:${ver ?? 'latest'}`]);
+// 		if (!savedInfo) {
+// 			console.error(
+// 				`Wasn't able to find requested version of component library stored locally. Version: "${ver ?? 'latest'}"`
+// 			);
+// 			return { componentLibrary: [] };
+// 		} else if (!localSaveEntryIsLib(savedInfo))
+// 			throw new Error(`Entry wasn't for a component library.`);
 
-		return { componentLibrary: savedInfo.comps };
-	}
+// 		return { componentLibrary: savedInfo.comps };
+// 	}
 
-	const data: GetCompLibFetchReturn = await resp.json();
-	console.log(data);
+// 	const data: GetCompLibFetchReturn = await resp.json();
+// 	console.log(data);
 
-	data.library.forEach((comp) => {
-		comp.type = componentTypeToString(comp.type);
-	});
+// 	data.library.forEach((comp) => {
+// 		comp.type = componentTypeToString(comp.type);
+// 	});
 
-	return {
-		componentLibrary: data.library,
-		compLibVerInfo: data
-	};
-}
+// 	return {
+// 		componentLibrary: data.library,
+// 		compLibVerInfo: data
+// 	};
+// }
 
 export async function loadComponent(p: EditorInterfaceLoading) {
-	const componentID = getComponentID();
+	const componentID = getComponentID(p.editorState());
 	if (componentID === null) return;
 
 	await p.flushServerChanges();
 
-	const { componentLibrary } = await getSavedComponentLibrary();
+	const latestCompLibVer = await p.getLatestCompLibVersion();
+	const componentLibrary = await p.getCompLib(latestCompLibVer);
 	loadComponentLibrary(componentLibrary, 'component', p.componentElStyles);
 
 	localSave.current[`L:latest`] = {
@@ -247,22 +266,22 @@ export async function loadComponent(p: EditorInterfaceLoading) {
 		comps: $state.snapshot(savedComponents)
 	};
 
-	doc.resetDocInfo();
+	p.doc.resetDocInfo();
 
 	const comp = savedComponents.find((comp) => comp.name === componentID);
 	const editMatch = compLibEdits.current.find(
-		(edit) => edit.editType !== 'remove' && edit.identName === componentID
+		(edit) => edit.state !== 'removed' && edit.identName === componentID
 	);
 
 	if (comp || editMatch) {
 		// Combine the saved component library with locally stored edits
-		const compWithEdits = assign($state.snapshot(comp) ?? {}, editMatch ?? {}) as SavedComponent;
+		const compWithEdits = assign($state.snapshot(comp) ?? {}, editMatch ?? {}) as Component;
 
 		if (compWithEdits.type === 'element') {
 			const compBody = decodeElComponentStr(compWithEdits.content, 'component');
 			loadDocBody(Array.from(compBody.childNodes), p);
 		} else if (compWithEdits.type === 'style') {
-			doc.styles = parseStylesheetStr(compWithEdits.content);
+			p.doc.styles = parseStylesheetStr(compWithEdits.content);
 
 			// Show message that the document content is ephemeral
 			const div = document.createElement('div');
@@ -279,7 +298,7 @@ export async function loadComponent(p: EditorInterfaceLoading) {
       </main>`;
 			loadDocBody([div.children[0]], p);
 
-			doc.body = compWithEdits.content;
+			p.doc.body = compWithEdits.content;
 		}
 	} else {
 		// There's no match of the component ID with a component in the library; this is essentially the 404 view (or as I like to call it; purgatory >:)
@@ -291,54 +310,33 @@ export async function loadComponent(p: EditorInterfaceLoading) {
 	}
 
 	// Get all currently defined tags, so that autocomplete can be provided when modifying component tags
-	const resp = await fetch_('/documents/api/get_component_tags');
-	recoverTags: if (!resp.ok) {
-		console.warn('Fetching component tags failed. Will attempt to use local store.');
-		const savedInfo = $state.snapshot(localSave.current[`L:latest`]);
-		if (!savedInfo) {
-			console.error(`Wasn't able to find latest version of component library stored locally.`);
-			allComponentTags.splice(0, allComponentTags.length);
-			break recoverTags;
-		} else if (!localSaveEntryIsLib(savedInfo))
-			throw new Error(`Entry wasn't for a component library.`);
-		else if (!savedInfo.definedTags) {
-			console.error(`Local entry for latest library version did not include definedTags.`);
-			allComponentTags.splice(0, allComponentTags.length);
-			break recoverTags;
-		}
-
-		allComponentTags.splice(0, allComponentTags.length, ...savedInfo.definedTags);
-	} else {
-		const data: string[] = await resp.json();
-		allComponentTags.splice(0, allComponentTags.length, ...data);
-
-		const latestSavedLib = $state.snapshot(localSave.current['L:latest']);
-		if (latestSavedLib && localSaveEntryIsLib(latestSavedLib)) latestSavedLib.definedTags = data;
-	}
+	const compTagsList = componentLibrary.flatMap((comp) => comp.tags ?? []);
+	allComponentTags.splice(0, allComponentTags.length, ...compTagsList);
+	// 	const latestSavedLib = $state.snapshot(localSave.current['L:latest']);
+	// 	if (latestSavedLib && localSaveEntryIsLib(latestSavedLib)) latestSavedLib.definedTags = data;
 
 	// Find the current (latest) version string of the component library
-	const verResp = await fetch_('/documents/api/savedcomponents_currentversion');
-	recoverVer: if (!verResp.ok) {
+	getLatestCompLibVer: try {
+		const compLibLatestVer = await p.getLatestCompLibVersion();
+		p.compLib.latestVer = compLibLatestVer;
+
+		// 	const latestSavedLib = $state.snapshot(localSave.current['L:latest']);
+		// 	if (latestSavedLib && localSaveEntryIsLib(latestSavedLib)) {
+		// 		latestSavedLib.version = latestVer;
+		// 		localSave.current[`L:${latestVer}`] = structuredClone(latestSavedLib);
+		// 	}
+	} catch (err) {
 		console.warn(
 			'Fetching latest component library version failed. Will attempt to use local store.'
 		);
 		const savedInfo = $state.snapshot(localSave.current[`L:latest`]);
 		if (!savedInfo) {
 			console.error(`Wasn't able to find latest version of component library stored locally.`);
-			compLib.latestVer = null;
-			break recoverVer;
+			p.compLib.latestVer = null;
+			break getLatestCompLibVer;
 		} else if (!localSaveEntryIsLib(savedInfo))
 			throw new Error(`Entry wasn't for a component library.`);
 
-		compLib.latestVer = savedInfo.version;
-	} else {
-		const latestVer = await verResp.text();
-		compLib.latestVer = latestVer;
-
-		const latestSavedLib = $state.snapshot(localSave.current['L:latest']);
-		if (latestSavedLib && localSaveEntryIsLib(latestSavedLib)) {
-			latestSavedLib.version = latestVer;
-			localSave.current[`L:${latestVer}`] = structuredClone(latestSavedLib);
-		}
+		p.compLib.latestVer = savedInfo.version;
 	}
 }
