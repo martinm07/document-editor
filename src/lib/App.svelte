@@ -661,7 +661,7 @@
                  width: min(75%, 600px); margin: 0 auto;
              for example. -->
 				<div class="doc w-full" bind:this={docEl}>
-					<DocMeta {docEl} {docSaver} bind:this={docMeta} />
+					<DocMeta {docSaver} bind:this={docMeta} />
 					<DocStyles {docSaver} bind:this={docStyles} />
 					<div class="mx-auto w-3/4 max-w-150">Loading document...</div>
 				</div>

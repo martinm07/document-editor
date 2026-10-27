@@ -56,7 +56,7 @@
 				// return fetch_('/documents/api/publish_development_document', {
 				// 	method: 'post',
 				// 	body: JSON.stringify({
-				// 		id: doc.info.id,
+				// 		id: doc.id,
 				// 		body: bodyStr,
 				// 		stylesheet: stylesheetStr
 				// 	})

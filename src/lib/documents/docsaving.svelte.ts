@@ -356,7 +356,7 @@ export class SaveDoc {
 		// const resp = await fetch_('/documents/api/sync_development_stylesheet', {
 		// 	method: 'post',
 		// 	body: JSON.stringify({
-		// 		id: doc.info.id,
+		// 		id: doc.id,
 		// 		stylesheet: styles
 		// 	})
 		// });

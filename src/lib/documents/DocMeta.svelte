@@ -8,52 +8,67 @@
 	import { getContext } from 'svelte';
 	import { watch } from 'runed';
 	import type { SaveDoc } from './docsaving.svelte.js';
-	import { deepEqual } from '../helper.js';
+	import { deepEqual, getNodeParents } from '../helper.js';
 	import { type TempMutationRecord } from './docsyncing.js';
 	import type { Doc } from '../store.svelte.js';
-	import type { DocumentEditorProps } from '../App.svelte';
-	// import { editorState } from '../url.svelte';
+	import type { DocumentEditorProps, EditorState } from '../App.svelte';
 
 	const doc: Doc = getContext('doc');
+	const getDocEl: () => HTMLElement = getContext('getDocEl');
+	const editorState: () => EditorState = getContext('editorState');
 	const metaPropNames: () => DocumentEditorProps['metaPropNames'] = getContext('metaPropNames');
 
 	interface Props {
-		docEl: HTMLElement;
 		docSaver: SaveDoc;
 	}
-	let { docEl, docSaver }: Props = $props();
+	let { docSaver }: Props = $props();
 
-	$inspect(doc.info?.id);
+	$inspect(doc.id);
 
-	// function updateStateForMetaEl(metaContainer: HTMLElement) {
-	// 	const fields = Object.keys(metaPropNames());
-
-	// 	const field_ = metaContainer.dataset.field; // i.e. attribute "data-field"
-	// 	if (field_ && fields.includes(field_)) {
-	// 		const field = field_;
-
-	// 		updateDocInfo: if (field === 'tags') {
-	// 			const oldTags = doc.info?.['tags'];
-	// 			const tags = Array.from(metaContainer.children).map((child) => child.textContent);
-
-	// 			// If the tags haven't changed, then DON'T make an assignment to doc.info
-	// 			if (oldTags.length === tags.length && oldTags.every((oldTag, i) => oldTag === tags[i]))
-	// 				break updateDocInfo;
-
-	// 			doc.info.tags = tags;
-	// 		} else if (doc.info[field] !== metaContainer.textContent) {
-	// 			// If the content hasn't changed, DON'T assign to doc.info
-	// 			doc.info[field] = metaContainer.textContent;
-	// 		}
-	// 	} else {
-	// 		console.error(
-	// 			`There is an element with the class 'document-meta-data' but not a 'data-field' attribute of a valid value: `,
-	// 			metaContainer
-	// 		);
-	// 	}
-	// }
+	function checkMetaDataEl(el: Element) {
+		const propName = el.getAttribute('data-field');
+		const propValue = JSON.parse(el.textContent);
+		if (
+			propName &&
+			doc.info &&
+			Object.hasOwn(doc.info, propName) &&
+			!deepEqual(doc.info[propName], propValue)
+		) {
+			doc.info[propName] = propValue;
+		}
+	}
 
 	export function informMetaUpdate(mutations: TempMutationRecord[]) {
+		if (!doc.infoFetched) return;
+		const docEl = getDocEl();
+
+		for (const mutation of mutations) {
+			const toCheck = [mutation.target, ...getNodeParents(mutation.target, docEl, true)];
+			for (const node of toCheck) {
+				if (!(node instanceof Element)) continue;
+				if (node.classList.contains('document-meta-data')) {
+					// Check the document-meta-data element
+					checkMetaDataEl(node);
+					break;
+				} else if (node.classList.contains('doc-meta')) {
+					Array.from(node.children).forEach((child) => {
+						if (child.classList.contains('document-meta-data')) checkMetaDataEl(child);
+					});
+					break;
+				} else if (node === docEl) {
+					if (
+						mutation.addedNode instanceof Element &&
+						mutation.addedNode.classList.contains('doc-meta')
+					) {
+						Array.from(mutation.addedNode.children).forEach((child) => {
+							if (child.classList.contains('document-meta-data')) checkMetaDataEl(child);
+						});
+					}
+					break;
+				}
+			}
+		}
+
 		// if (!doc.infoFetched) return;
 		// return;
 		// for (const mutation of mutations) {
@@ -78,29 +93,59 @@
 	}
 
 	// Server sync
-	// watch(
-	// 	() => $state.snapshot(doc.info),
-	// 	(curr, prev) => {
-	// 		if (editorState.mode === 'document' && !deepEqual(curr, prev)) {
-	// 			docSaver.syncDocMetadataDebounce(doc.info.id, curr);
-	// 		}
-	// 	},
-	// 	{
-	// 		lazy: true
-	// 	}
-	// );
+	watch(
+		() => $state.snapshot(doc.info),
+		(curr, prev) => {
+			if (editorState().mode === 'document' && !deepEqual(curr, prev)) {
+				docSaver.syncDocMetadataDebounce(doc.id, curr);
+			}
+		},
+		{
+			lazy: true
+		}
+	);
 </script>
 
 <div
 	class="doc-meta history-not-body"
 	{@attach (containerEl) => {
-		// if (!doc.info) return;
-		$state.snapshot(doc.info);
+		if (!doc.info) return;
+		const metaPropNames = Object.keys($state.snapshot(doc.info));
+
+		const consumedProps: string[] = [];
+		for (const child of containerEl.children) {
+			if (!child.classList.contains('document-meta-data') || !child.hasAttribute('data-field')) {
+				child.remove();
+				continue;
+			}
+
+			const propName = child.getAttribute('data-field');
+			if (!propName || !metaPropNames.includes(propName)) {
+				child.remove();
+				continue;
+			}
+
+			const newValue = JSON.stringify(doc.info[propName]);
+			if (child.textContent !== newValue) {
+				child.textContent = newValue;
+			}
+			consumedProps.push(propName);
+		}
+
+		for (const propName of metaPropNames) {
+			if (consumedProps.includes(propName)) continue;
+			// This is a property that doesn't yet have an element associated with it; add it now
+			const newPre = document.createElement('pre');
+			newPre.classList.add('document-meta-data');
+			newPre.setAttribute('data-field', propName);
+			newPre.textContent = JSON.stringify(doc.info[propName]);
+			containerEl.appendChild(newPre);
+		}
 	}}
 ></div>
 
 <!-- <div class="doc-meta history-not-body">
-	<pre class="document-meta-data" data-field="id">{doc.info ? doc.info.id : ''}</pre>
+	<pre class="document-meta-data" data-field="id">{doc.info ? doc.id : ''}</pre>
 	<pre class="document-meta-data" data-field="componentLibVer">{doc.info
 			? doc.info.componentLibVer
 			: ''}</pre>

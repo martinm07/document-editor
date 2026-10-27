@@ -301,7 +301,7 @@ export function insertAfter(existingNode: Node, newNode: Node) {
  * @param topEl - The top-most DOM node to stop the traversal (not included in the result).
  * @returns An array of parent elements from the `node` up to (but not including) `topEl`.
  */
-export function getNodeParents(node: Node, topEl: Node): Element[] {
+export function getNodeParents(node: Node, topEl: Node, includeTopEl: boolean = false): Element[] {
 	if (node === topEl || !topEl.contains(node)) return [];
 
 	let parent = node.parentElement;
@@ -311,6 +311,7 @@ export function getNodeParents(node: Node, topEl: Node): Element[] {
 		allParents.push(parent);
 		parent = parent.parentElement;
 	}
+	if (includeTopEl && parent === topEl) allParents.push(parent);
 	return allParents;
 }
 

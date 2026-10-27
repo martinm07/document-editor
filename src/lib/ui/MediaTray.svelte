@@ -27,8 +27,8 @@
 	//////////////// HANDLING LIST
 
 	async function updateList() {
-		console.log(doc.info.id);
-		// fetch_(`/documents/api/get_media_files?id=${doc.info.id}`)
+		console.log(doc.id);
+		// fetch_(`/documents/api/get_media_files?id=${doc.id}`)
 		// 	.then((resp) => resp.json())
 		// 	.then((data) => {
 		// 		mediaFiles.splice(0, mediaFiles.length, ...data);
@@ -60,7 +60,7 @@
 			// const resp = await fetch_('/documents/api/remove_media_file', {
 			// 	method: 'post',
 			// 	body: JSON.stringify({
-			// 		id: doc.info.id,
+			// 		id: doc.id,
 			// 		path: filename
 			// 	})
 			// });
@@ -135,8 +135,8 @@
 
 			// const formData = new FormData();
 			// formData.append('file', fileState.file);
-			// formData.set('id', doc.info.id);
-			// console.log(doc.info.id);
+			// formData.set('id', doc.id);
+			// console.log(doc.id);
 
 			// uploadQueue.push(() => {
 			// 	if (N <= 0) {
