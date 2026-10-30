@@ -134,8 +134,6 @@ export type DocSvelteMount = DocSvelteMountSuccess | DocSvelteMountFailOrCompili
 // });
 
 export class GenericDoc<Meta extends { [key: string]: any }> {
-	metaPropNames: () => { [K in keyof Meta]-?: true };
-
 	info: Meta | null = $state(null);
 
 	id: string = $state('');
@@ -147,11 +145,6 @@ export class GenericDoc<Meta extends { [key: string]: any }> {
 
 	infoFetched = $state(false);
 	is404 = $state(false);
-	// savedInfo: DocumentInfo =
-
-	constructor(metaPropNames: () => { [K in keyof Meta]-?: true }) {
-		this.metaPropNames = metaPropNames;
-	}
 
 	resetDocInfo() {
 		this.info = null;

@@ -5,20 +5,20 @@
 
 <script lang="ts">
 	import { getContext } from 'svelte';
-	import { watch } from 'runed';
 
-	import { allDocumentTags, autocompleteSuggestions, type Doc } from '../store.svelte.js';
-	import FitContentWrapTextarea from './FitContentWrapTextarea.svelte';
-	import { TagsEditor } from '../components/ComponentMetaEdit.svelte';
-	import { deepEqual, DynamicGroupStylesheet, DynamicStylesheet } from '../helper.js';
+	import { type Doc } from '../store.svelte.js';
+	import { DynamicStylesheet } from '../helper.js';
 	import { createPublishDoc } from '../documents/docsaving.svelte.js';
 	import { generateRuleString } from '../documents/DocStyles.svelte';
 	import type { SvelteCompiler } from '../svelte/compiler.js';
 	import type { DocumentEditorProps } from '../App.svelte';
 
 	const doc: Doc = getContext('doc');
-	const doPublish: () => DocumentEditorProps['doPublish'] = getContext('doPublish');
 	const getDocEl: () => HTMLElement = getContext('getDocEl');
+	const metaInputFields: () => DocumentEditorProps['metaInputFields'] =
+		getContext('metaInputFields');
+
+	const doPublish: () => DocumentEditorProps['doPublish'] = getContext('doPublish');
 	const getDataStyles: () => DynamicStylesheet<string> = getContext('getDataStyles');
 	const getComponentElStyles: () => DynamicStylesheet<string> = getContext('getComponentElStyles');
 	const getSvelteCompiler: () => SvelteCompiler = getContext('getSvelteCompiler');
@@ -53,14 +53,6 @@
 				console.log('PUBLISHING CHANGES.');
 				console.log('HTML string of published document:\n--------\n' + bodyStr);
 				console.log('Stylesheet string of published document:\n-------\n' + stylesheetStr);
-				// return fetch_('/documents/api/publish_development_document', {
-				// 	method: 'post',
-				// 	body: JSON.stringify({
-				// 		id: doc.id,
-				// 		body: bodyStr,
-				// 		stylesheet: stylesheetStr
-				// 	})
-				// });
 				return Promise.resolve(
 					doPublish()({
 						id: doc.id,
@@ -74,196 +66,21 @@
 		publishResp.finally(() => (disablePublishBtn = false));
 	}
 
-	//////////////
-
-	function validateTitle(title: string) {
-		if (title.length === 0) return 'Title required';
-		if (title.length > 128) return 'Title should be less then 129 characters';
-		return null;
-	}
-
-	function validateDescription(description: string) {
-		return null;
-	}
-
-	let tagsEditorEl: HTMLElement | null = $state(null);
-	let didEditorSync: boolean = false;
-	const tagsEditor = new TagsEditor(
-		(index, tags) => {
-			const tag = tags[index];
-			let msg = '';
-
-			if (tags.slice(0, index).includes(tag)) msg = 'Added already';
-
-			if (!allDocumentTags.some((existingTag) => existingTag.name === tag)) msg = 'Nonexistent tag';
-
-			if (tag.length === 0) msg = 'Missing tag';
-
-			const exists = msg === '';
-			return [exists, msg !== '', msg];
-		},
-		(tags) => {
-			doc.info.tags = tags;
-			didEditorSync = true;
-			setTimeout(() => (didEditorSync = false));
-		},
-		['+']
-	);
-
-	watch(
-		() => doc.info.tags,
-		(curr, prev) => {
-			if (didEditorSync) {
-				console.log('SKIPPED');
-				didEditorSync = false;
-				return;
-			}
-			if (!deepEqual(curr, prev) && tagsEditorEl) tagsEditor.setTags(curr, tagsEditorEl);
-		}
-	);
-
-	function handleTagsAutocomplete() {
-		const caret = getSelection();
-		if (!caret || !caret.focusNode) return;
-		const node = caret.focusNode;
-		if (
-			(node instanceof HTMLElement && node.closest('#edit-tags-doc span:not(.space)')) ||
-			node.parentElement?.closest('#edit-tags-doc span:not(.space)')
-		) {
-			$autocompleteSuggestions = allDocumentTags
-				.map(({ name }) => name)
-				.filter((name) => node.textContent && name.startsWith(node.textContent))
-				.toSorted((a, b) => a.length - b.length);
-		} else {
-			$autocompleteSuggestions = [];
-		}
-	}
-
 	let confirmPublish = $state(false);
 	let publishResp: Promise<void> | null = $state(null);
 	let disablePublishBtn = $state(false);
 </script>
 
-<svelte:document
-	onselectionchange={() => {
-		if (!tagsEditorEl) return;
-		tagsEditor.onSelectionChange(tagsEditorEl);
-	}}
-/>
-
 <div class="my-4 text-center text-xl text-rock-800 italic">View/Edit the document's metadata</div>
 
-<div>
-	<div class="mx-auto flex max-w-5xl items-stretch px-4 text-lg">
-		<label for="edit-title" class="flex items-center text-2xl text-rock-700">Title:</label>
-		<div class="relative mx-3 grow">
-			<input
-				class="w-full rounded border-b-2 border-rock-300 bg-background px-3 py-1.5 font-mono text-rock-600 inset-shadow-none ring-steel-200 inset-shadow-rock-200 outline-none focus:bg-white focus:ring-4 [.error]:border-red-300 [.error]:focus:ring-red-200"
-				class:error={validateTitle(doc.info.title)}
-				type="text"
-				name="edit-title"
-				id="edit-title"
-				placeholder="Guidance Document Title"
-				spellcheck="true"
-				bind:value={doc.info.title}
-			/>
-			{#if validateTitle(doc.info.title)}
-				<div class="absolute bottom-2 ml-3 translate-y-full text-sm font-bold text-red-400">
-					<span class="bg-white px-1">{validateTitle(doc.info.title)}</span>
-				</div>
-			{/if}
-		</div>
-	</div>
-
-	<div class="mx-auto mt-12 flex max-w-3xl items-stretch px-4">
-		<label for="edit-description" class="flex items-center text-2xl text-rock-700"
-			>Description:</label
-		>
-		<div class="relative mx-3 flex grow">
-			<FitContentWrapTextarea
-				class="{validateDescription(doc.info.description)
-					? 'error'
-					: ''} box-content w-full grow resize-none rounded border-b-2 border-rock-300 bg-background px-3 py-1.5 font-mono text-rock-600 inset-shadow-none ring-steel-200 inset-shadow-rock-200 outline-none focus:bg-white focus:ring-4 [.error]:border-red-300 [.error]:focus:ring-red-200"
-				dontModifyWidth
-				name="edit-description"
-				id="edit-description"
-				placeholder="Brief description of guidance document."
-				bind:value={doc.info.description}
-			/>
-			{#if validateDescription(doc.info.description)}
-				<div class="absolute bottom-2 ml-3 translate-y-full text-sm font-bold text-red-400">
-					<span class="bg-white px-1">{validateDescription(doc.info.description)}</span>
-				</div>
-			{/if}
-		</div>
-	</div>
-
-	<div class="mx-auto mt-5 flex max-w-3xl px-4">
-		<label
-			for="edit-tags-doc"
-			class="flex items-center text-2xl text-rock-700"
-			id="edit-tags-doc-label">Tags:</label
-		>
-		<div
-			role="application"
-			aria-labelledby="edit-tags-doc-label"
-			spellcheck="false"
-			contenteditable="true"
-			id="edit-tags-doc"
-			bind:this={tagsEditorEl}
-			oninput={(e) => {
-				if (tagsEditorEl) {
-					tagsEditor.onInput(tagsEditorEl);
-					handleTagsAutocomplete();
-				}
-			}}
-			onkeydown={(e) => tagsEditor.onKeydown(e)}
-			class="relative mx-3 flex min-w-60 flex-wrap font-mono text-rock-600 outline-none"
-		></div>
-	</div>
-</div>
-<div class="mx-auto mt-1 max-w-3xl pl-8 text-base text-rock-500 italic">
-	Press "+" while editing to add new tags. <a
-		class="ml-1 text-lg text-steel-600 underline hover:no-underline"
-		href="/documents/tags"
-		target="_blank">Manage tags</a
-	>
-</div>
-
-<div class="mx-auto mt-5 flex max-w-3xl px-4">
-	<label class="mr-3 flex items-center text-2xl text-rock-700" for="edit-accent">Accent:</label>
-	<input
-		bind:value={doc.info.accent}
-		class="rounded border-2 border-rock-300 bg-background p-1"
-		id="edit-accent"
-		type="color"
-	/>
-</div>
-
-<div class="mx-auto mt-7 flex max-w-3xl px-4">
-	<label class="mr-3 flex items-center text-2xl text-rock-700" for="edit-thumbnail"
-		>Thumbnail:</label
-	>
-	<textarea
-		class="h-28 grow rounded border-2 border-rock-300 bg-background p-1 font-mono text-rock-600 ring-steel-200 outline-none focus:bg-white focus:ring-4"
-		name="edit-thumbnail"
-		id="edit-thumbnail"
-		bind:value={doc.info.thumbnail}></textarea>
-</div>
-
-<div class="mx-auto mt-5 flex max-w-3xl px-4">
-	<label class="mr-3 flex items-center text-2xl text-rock-700" for="edit-status">Status:</label>
-	<select
-		class="rounded border-b-2 border-rock-300 bg-background px-4 py-2 font-mono text-lg font-bold text-rock-600 ring-steel-200 focus:ring-4"
-		id="edit-status"
-		bind:value={doc.info.status}
-	>
-		<option value="private">Private</option>
-		<option value="unlisted">Unlisted</option>
-		<option value="public">Public</option>
-		<option value="featured">Featured</option>
-	</select>
-</div>
+{#each Object.entries(metaInputFields()) as [propName, propSnippet]}
+	{@render propSnippet(
+		() => doc.info[propName],
+		(val) => {
+			doc.info[propName] = val;
+		}
+	)}
+{/each}
 
 <div class="my-18 flex flex-col items-center">
 	{#if confirmPublish}

@@ -37,7 +37,7 @@ interface EditorInterfaceLoading {
 }
 
 const getDocumentID = (editorState: EditorState) =>
-	editorState.mode === 'document' ? Number.parseInt(editorState.resourceName) : null;
+	editorState.mode === 'document' ? editorState.resourceName : null;
 const getComponentID = (editorState: EditorState) =>
 	editorState.mode === 'component' ? editorState.resourceName : null;
 
@@ -180,19 +180,15 @@ export async function loadDocument(p: EditorInterfaceLoading) {
 	// 	compLib.latestVer = compLibVerInfo.upgrade_to_version;
 	// }
 
-	p.doc.info = {
-		id: `${documentID}`,
+	const metaKeys = Object.keys(data).filter(
+		(key) => !['id', 'body', 'stylesheet', 'compLibVer'].includes(key)
+	);
+	const metaInfo: { [key: string]: any } = {};
+	metaKeys.forEach((key) => (metaInfo[key] = data[key]));
 
-		title: data['title'] ?? '',
-		description: data['description'] ?? '',
-		tags: data['tags'] ?? [],
-		accent: data['accent'] ?? '',
-		thumbnail: data['thumbnail'] ?? '',
-		status: data['status'] ?? '',
-
-		// body: data["body"],
-		componentLibVer: data.compLibVer
-	};
+	p.doc.info = metaInfo;
+	p.doc.id = documentID;
+	p.doc.compLibVer = data.compLibVer;
 	p.doc.body = data.body;
 	p.doc.styles = parseStylesheetStr(data['stylesheet']);
 	// if (resp.ok) doc.infoFetched = true;

@@ -32,7 +32,9 @@
 
 	interface GenericDocumentEditorProps<Meta extends { [key: string]: any }> {
 		editorState: EditorState;
-		metaPropNames: { [K in keyof Meta]-?: true };
+		metaInputFields: {
+			[K in keyof Meta]-?: Snippet<[getval: () => Meta[K], setval: (val: Meta[K]) => void]>;
+		};
 
 		doChangePage: (changes: Partial<EditorState>) => void;
 		doFullSync: (
@@ -98,7 +100,7 @@
 
 	export { type Meta };
 
-	import { onDestroy, setContext } from 'svelte';
+	import { onDestroy, setContext, type Snippet } from 'svelte';
 	import { on } from 'svelte/events';
 	import { PersistedState, useMutationObserver, watch } from 'runed';
 	import { PaneGroup, Pane, PaneResizer } from 'paneforge';
@@ -153,7 +155,7 @@
 
 	let {
 		editorState,
-		metaPropNames,
+		metaInputFields,
 		doChangePage,
 		doPatchSync,
 		doFullSync,
@@ -168,7 +170,7 @@
 	}: GenericDocumentEditorProps<Meta> = $props();
 
 	setContext('editorState', () => editorState);
-	setContext('metaPropNames', () => metaPropNames);
+	setContext('metaInputFields', () => metaInputFields);
 	setContext('doChangePage', () => doChangePage);
 	setContext('doPatchSync', () => doPatchSync);
 	setContext('doFullSync', () => doFullSync);
@@ -181,7 +183,7 @@
 	setContext('getCompLib', () => getCompLib);
 	setContext('getAllUploadedMedia', () => getAllUploadedMedia);
 
-	const doc = new GenericDoc<Meta>(() => metaPropNames);
+	const doc = new GenericDoc<Meta>();
 	setContext('doc', doc);
 
 	const comps = new Comps(() => editorState);

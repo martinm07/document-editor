@@ -15,9 +15,8 @@
 		let paddingY: number;
 
 		if (computed.boxSizing === 'border-box') {
-			paddingY = Number.parseFloat(computed.paddingTop) + Number.parseFloat(computed.paddingBottom);
-			paddingY +=
-				Number.parseFloat(computed.borderTopWidth) + Number.parseFloat(computed.borderBottomWidth);
+			paddingY =
+				-Number.parseFloat(computed.borderTopWidth) - Number.parseFloat(computed.borderBottomWidth);
 		} else {
 			paddingY = Number.parseFloat(computed.paddingTop) + Number.parseFloat(computed.paddingBottom);
 		}
