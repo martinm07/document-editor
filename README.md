@@ -1,79 +1,104 @@
-# Svelte library
+# svelte-html-document-editor
 
-Everything you need to build a Svelte library, powered by [`sv`](https://npmjs.com/package/sv).
+_A light, visual HTML document editor that embraces the use of HTML, CSS and Svelte directly._
 
-Read more about creating a library [in the docs](https://svelte.dev/docs/kit/packaging).
+~~[View the demo.](<>)~~
 
-## Creating a project
+![Preview of the svelte-html-document-editor](./static/editor-preview-banner.png)
 
-If you're seeing this, you've probably already done this step. Congrats!
+This project is intended to provide a powerful, and relatively approachable, way of editing HTML content, primarily for the purpose of writing article or blog content. By allowing full control over the HTML structure, attributes and CSS styles (and Svelte code for interactive elements), it surpasses the capabilities given by typical WYSIWYG editors, while trying to preserve ease-of-use.
+
+## What It Is
+
+- **What You See Is What You Get.** The editor, running in a browser environment, renders the HTML content you are writing, and the editor allows you to operate on that rendered content directly.
+- **Open source and integratable.** Add the NPM package to your Svelte frontend and simply import and call `<DocumentEditor />` with the appropriate hooks.
+- **Inspired by browser inspector tools and mode-based editors like Vim.**
+
+## What It Has
+
+- **Visual selection of HTML elements**. Hover elements in a document to show an outline. Press 'S' to toggle their selection. Multiple elements can be selected at a time.
+- **Direct editing of CSS properties, HTML attributes and HTML tag names.** Selected elements show all of their relevant information in the editor sidebar, and any displayed information can be modified.
+- **Editing of any text in the document**. Hover over any text and press 'T' to immediately edit that text. The editor achieves this through dynamic application of the `contenteditable` attribute.
+- **Adding, moving and deleting HTML elements**. Remove selected elements by pressing 'Del'. Add new elements by pressing 'A', then selecting the location you want to add it. Move selected elements by simply dragging them; the available destinations are displayed automatically.
+- **Editing global CSS stylesheet rules**. Toggle the sidebar's 'global styles' view to add, remove, edit and rearrange CSS rules to your heart's content.
+- **Full undo/redo support**. Use `Ctrl-Z`/`Ctrl-Y` on any action you take. The editor can store and _group_, as serializable objects, all arbitrary changes to the HTML content (i.e. not just those made using the editor's built-in tools). These history states, represented as lists of changes, can then be navigated in the familiar way. Even content not part of the document HTML string itself (such as document metadata, or global stylesheet rules) the editor secretly syncs to allow undo/redo to work through the same mechanism.
+- **Built-in autocomplete and help links to MDN Web Docs**. Make writing your own HTML and CSS easier to deal with ;)
+- **Built-in 'media tray'**. Collect and manage external files (like images) associated with a HTML document.
+- **Component-library system**. Build your own collection of reusable HTML, CSS and Svelte snippets, and ensure consistency across all your documents (the component library is versioned, allowing updated to components to be propagated to documents).
+- **Write and integrate your own Svelte code into documents**. Write 'svelte-type components' through a built-in Svelte code editor, see their previews live, and mount them into your documents as you would regular HTML nodes. The editor
+
+## What It Doesn't Have (yet)
+
+- A way to integrate into frontends that don't use Svelte.
+- Support for keyboard-only workflows.
+- Support for keyboardless workflows.
+- Complete documentation.
+- ...Things not listed as "Done" on [this Fizzy board](https://app.fizzy.do/6240055/public/boards/KZhFtuY3SEJMdZYEiSuJ3k6L).
+
+## Usage
+
+This project defines a Svelte component that can be imported and used inside frontends written in Svelte. It expects you to provide various hooks to allow it to integrate with the rest of your website or application. And it largely expects to have the page for itself (given it creates its own sidebar and navbar UI spanning the screen's full height and width).
+
+To install, run:
 
 ```sh
-# create a new project in the current directory
-npx sv create
-
-# create a new project in my-app
-npx sv create my-app
+npm install svelte-html-document-editor
 ```
 
-To recreate this project with the same configuration:
+Then use it as so in a `.svelte` file:
 
-```sh
-# recreate this project
-npx sv@1.1.1 create --template library --types ts --add prettier tailwindcss="plugins:none" --install npm .
+```svelte
+<script lang="ts">
+	import { DocumentEditor, type EditorState } from 'svelte-html-document-editor';
+
+	const editorState: EditorState = $state({
+		mode: 'document',
+		resourceName: '1',
+		documentRedirect: null
+	});
+
+	const metaInputFields = {/* [...] */};
+</script>
+
+<DocumentEditor
+	{editorState}
+	{metaInputFields}
+	doChangePage={() => undefined}
+	doFullSync={() => undefined}
+	doPatchSync={() => undefined}
+	doMediaUpload={() => ({
+		cancelUpload: () => undefined,
+		getFilepath: () => ''
+	})}
+	doMediaRemove={() => undefined}
+	doPublish={() => undefined}
+	doCompLibUpdate={() => undefined}
+	getDoc={() => ({
+		id: '1',
+		body: '',
+		stylesheet: '',
+		compLibVer: ''
+	})}
+	getLatestCompLibVersion={() => ''}
+	getCompLib={() => []}
+	getAllUploadedMedia={() => []}
+/>
 ```
 
-## Adding features
-
-Add features to your project with `sv add`:
-
-```sh
-npx sv add
-```
-
-For example, to add Tailwind CSS:
+A more complete example can be found in [src/routes/+page.svelte](./src/routes/+page.svelte).\
+If you want to run _that_ demo page locally, do the following:
 
 ```sh
-npx sv add tailwindcss
-```
-
-## Developing
-
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
-
-```sh
+git clone git@github.com:martinm07/document-editor.git
+cd document-editor
+npm install
 npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
 ```
 
-Everything inside `src/lib` is part of your library, everything inside `src/routes` can be used as a showcase or preview app.
+## Contributing
 
-## Building
+Feel free to reach out if your interest has been piqued— don't be a stranger :-)
 
-To build your library:
+## License
 
-```sh
-npm pack
-```
-
-To create a production version of your showcase app:
-
-```sh
-npm run build
-```
-
-You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
-
-## Publishing
-
-Go into the `package.json` and give your package the desired name through the `"name"` option. Also consider adding a `"license"` field and point it to a `LICENSE` file which you can create from a template (one popular option is the [MIT license](https://opensource.org/license/mit/)).
-
-To publish your library to [npm](https://www.npmjs.com):
-
-```sh
-npm publish
-```
+[GPL-3.0](./LICENSE)
