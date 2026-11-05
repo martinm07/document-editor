@@ -1,4 +1,4 @@
-import { compLibEdits, savedComponents } from '../store.svelte.js';
+import { CompLib, compLibEdits, savedComponents } from '../store.svelte.js';
 
 // import { editorState } from '../url.svelte';
 // import { componentTypeStrToNum } from './component.svelte';
@@ -13,7 +13,7 @@ import type {
 	ComponentWithParts
 } from '#lib/types.js';
 // import { ident } from 'css-tree';
-import type { DocumentEditorProps } from '../App.svelte';
+import type { CompLibInfo, DocumentEditorProps } from '../App.svelte';
 import { componentHasParts } from './component.svelte.js';
 
 // export interface CompParts {
@@ -55,20 +55,22 @@ function compIsSame(comp1: Component, comp2: Component) {
 }
 
 export function updateCompEdit(identName: string, update: Partial<Component>, comps: Comps) {
-	const existingEditModifiedInfo = compLibEdits.current.find(
+	const existingEditModifiedInfoI = compLibEdits.current.findIndex(
 		(edit) => edit.state === 'modified' && edit.identName === identName
-	) as CompLibModifiedEdit | undefined;
+	);
 
-	if (existingEditModifiedInfo) {
-		const i = compLibEdits.current.indexOf(existingEditModifiedInfo);
-		compLibEdits.current[i] = assign($state.snapshot(existingEditModifiedInfo), update);
+	if (existingEditModifiedInfoI !== -1) {
+		compLibEdits.current[existingEditModifiedInfoI] = assign(
+			$state.snapshot(compLibEdits.current[existingEditModifiedInfoI]),
+			update
+		);
 
 		const oldComp = comps.savedLib.find((comp) => comp.name === identName);
 		const newComp = comps.lib.find((comp) => comp.identName === identName);
 
 		if (oldComp && newComp && compIsSame(oldComp, newComp)) {
 			// Remove edit object because it doesn't actually change anything
-			compLibEdits.current.splice(i, 1);
+			compLibEdits.current.splice(existingEditModifiedInfoI, 1);
 		} else if (!oldComp || !newComp) {
 			console.warn(
 				`modified component '${identName}' doesn't exist in the old component library or new component library`
@@ -79,13 +81,15 @@ export function updateCompEdit(identName: string, update: Partial<Component>, co
 		return;
 	}
 
-	const existingEditAddedInfo = compLibEdits.current.find(
+	const existingEditAddedInfoI = compLibEdits.current.findIndex(
 		(edit) => edit.state === 'added' && edit.identName === identName
-	) as CompLibAddedEdit | undefined;
+	);
 
-	if (existingEditAddedInfo) {
-		const i = compLibEdits.current.indexOf(existingEditAddedInfo);
-		compLibEdits.current[i] = assign($state.snapshot(existingEditAddedInfo), update);
+	if (existingEditAddedInfoI !== -1) {
+		compLibEdits.current[existingEditAddedInfoI] = assign(
+			$state.snapshot(compLibEdits.current[existingEditAddedInfoI]),
+			update
+		);
 		return;
 	}
 
@@ -239,18 +243,94 @@ export function updateCompRestore(identName: string) {
 // 	if (i !== -1) newLib.splice(i, 1);
 // }
 
+/**
+ * Modifies `baseLib`, applying the supplied `edits`, and returns `baseLib` along with `nameChanges`
+ */
+function applyCompLibEdits(baseLib: Component[], edits: CompLibEdit[]) {
+	const nameChanges: [from: string, to: string][] = [];
+
+	for (const edit of edits) {
+		switch (edit.state) {
+			case 'added':
+				if (componentHasParts(edit)) {
+					baseLib.push({
+						name: edit.name,
+						type: edit.type,
+						content: edit.content,
+						parts: edit.parts,
+						description: edit.description,
+						tags: edit.tags
+					});
+				} else {
+					baseLib.push({
+						name: edit.name,
+						type: edit.type,
+						content: edit.content,
+						description: edit.description,
+						tags: edit.tags
+					});
+				}
+				break;
+			case 'modified':
+				const toEdit = baseLib.find((comp) => comp.name === edit.identName);
+				if (!toEdit) {
+					console.error(
+						'doCompLib received modification for component not existant in component library.'
+					);
+					break;
+				}
+
+				if (edit.name !== undefined) {
+					nameChanges.push([toEdit.name, edit.name]);
+					toEdit.name = edit.name;
+				}
+				if (edit.description !== undefined) toEdit.description = edit.description;
+				if (edit.tags !== undefined) toEdit.tags = edit.tags;
+				if (edit.content !== undefined) toEdit.content = edit.content;
+				if (edit.parts !== undefined && componentHasParts(toEdit)) toEdit.parts = edit.parts;
+
+				break;
+			case 'removed':
+				const toRemoveI = baseLib.findIndex((comp) => comp.name === edit.identName);
+				if (toRemoveI === -1) {
+					console.error(
+						'doCompLib received removal of component not existant in component library.'
+					);
+					break;
+				}
+
+				baseLib.splice(toRemoveI, 1);
+				break;
+		}
+	}
+
+	return { newCompLib: baseLib, nameChanges };
+}
+
 export function saveLibChanges(info: {
 	message: string;
 	description: string;
 	submitBtn: HTMLButtonElement | null;
 	doCompLibUpdate: DocumentEditorProps['doCompLibUpdate'];
+	comps: Comps;
+	compLib: CompLib;
 }) {
 	const edits = $state.snapshot(compLibEdits.current);
 
-	const final = {
-		message: info.message,
-		description: info.description,
+	const newVersion = crypto.randomUUID().replaceAll('-', '').slice(0, 8);
+
+	const { newCompLib, nameChanges } = applyCompLibEdits(
+		$state.snapshot(info.comps.savedLib),
 		edits
+	);
+
+	const final: CompLibInfo = {
+		version: newVersion,
+		previousVersion: info.compLib.latestVer,
+		components: newCompLib,
+		nameChanges,
+		message: info.message,
+		description: info.description
 	};
 
 	console.log('Submitted update to component library', final);
@@ -372,12 +452,21 @@ export class Comps {
 	 * The current state of the component being edited, merging saved info and unsaved edits.
 	 */
 	current: ComponentWithEditInfo | null = $derived.by(() => {
-		if (!this.savedCurrent) return null;
-		let compEdit: CompLibEdit = compLibEdits.current.find(
-			(edit) => edit.state !== 'removed' && edit.identName === this.editorState().resourceName
-		) ?? { state: 'unmodified', identName: this.savedCurrent.name };
+		if (!this.savedCurrent) {
+			// the component currently selected does NOT exist in the saved component library; it could still have been added in an edit.
+			const compAdded: CompLibEdit | undefined = compLibEdits.current.find(
+				(edit) => edit.state === 'added' && edit.identName === this.editorState().resourceName
+			);
+			if (!compAdded) return null;
+			else return compAdded as CompLibAddedEdit;
+		} else {
+			// The component currently selected exists in the saved component library; either it has been modified or it hasn't.
+			let compEdit = compLibEdits.current.find(
+				(edit) => edit.state === 'modified' && edit.identName === this.editorState().resourceName
+			) ?? { state: 'unmodified', identName: this.savedCurrent.name };
 
-		return assign(this.savedCurrent, compEdit);
+			return assign(this.savedCurrent, compEdit);
+		}
 	});
 
 	/**
@@ -401,7 +490,7 @@ export class Comps {
 		}
 
 		const newSavedComps: ComponentWithEditInfo[] = savedComps.map((comp) => {
-			const edit: CompLibEdit = compLibEdits.current.find(
+			const edit = compLibEdits.current.find(
 				(edit) => edit.state !== 'removed' && edit.identName === comp.name
 			) ?? { state: 'unmodified', identName: comp.name };
 

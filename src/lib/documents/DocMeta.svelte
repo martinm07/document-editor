@@ -16,7 +16,6 @@
 	const doc: Doc = getContext('doc');
 	const getDocEl: () => HTMLElement = getContext('getDocEl');
 	const editorState: () => EditorState = getContext('editorState');
-	const metaPropNames: () => DocumentEditorProps['metaPropNames'] = getContext('metaPropNames');
 
 	interface Props {
 		docSaver: SaveDoc;
@@ -147,7 +146,7 @@
 <!-- <div class="doc-meta history-not-body">
 	<pre class="document-meta-data" data-field="id">{doc.info ? doc.id : ''}</pre>
 	<pre class="document-meta-data" data-field="componentLibVer">{doc.info
-			? doc.info.componentLibVer
+			? doc.compLibVer
 			: ''}</pre>
 	<pre class="document-meta-data" data-field="status">{doc.info ? doc.info.status : ''}</pre>
 

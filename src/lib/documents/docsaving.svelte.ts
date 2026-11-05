@@ -14,7 +14,7 @@ import {
 	applyPatches,
 	getElementString
 } from './docsyncing.js';
-import { localSave, localSaveEntryIsDoc, pruneLocalSave, type Doc } from '../store.svelte.js';
+import { type Doc } from '../store.svelte.js';
 import { closestAttribute, DynamicStylesheet } from '../helper.js';
 import {
 	isHistoryNotBodyContainer,
@@ -25,7 +25,7 @@ import type { CompilePublishInfo, SvelteCompiler } from '../svelte/compiler.js';
 import type { DocumentMetaUpdate } from '#lib/types.js';
 
 const getDocumentID = (editorState: EditorState) =>
-	editorState.mode === 'document' ? Number.parseInt(editorState.resourceName) : null;
+	editorState.mode === 'document' ? editorState.resourceName : null;
 const getComponentID = (editorState: EditorState) =>
 	editorState.mode === 'component' ? editorState.resourceName : null;
 
@@ -64,9 +64,9 @@ export class SaveDoc {
 	>;
 	syncDocStylesDebounce: ReturnType<typeof useDebounce<[string, string], Promise<void>>>;
 
-	editorState: () => DocumentEditorProps['editorState'];
-	prevDocumentType: DocumentEditorProps['editorState']['mode'] | null = null;
-	prevDocumentID: DocumentEditorProps['editorState']['resourceName'] | null = null;
+	editorState: () => EditorState;
+	prevDocumentType: EditorState['mode'] | null = null;
+	prevDocumentID: EditorState['resourceName'] | null = null;
 	// prevDocInfo: typeof doc.info | null = null;
 
 	makePatches: () => ReturnType<typeof patchMutations>;
@@ -128,7 +128,7 @@ export class SaveDoc {
 			// Flush the serverSyncPatches queue
 			if (this.prevDocumentType === 'document' && this.prevDocumentID) {
 				// Apply the patches
-				this.syncServerDocPatch(Number.parseInt(this.prevDocumentID));
+				this.syncServerDocPatch(this.prevDocumentID);
 			} else {
 				// If the previous loading document was not of document type, then there shouldn't be any patches,
 				//  but just to be safe we splice the queue anyway.
@@ -254,7 +254,7 @@ export class SaveDoc {
 	 * TODO: Also sync other document info when it changes, using the local save of that info (ideally the local save has some field like "dirty" which indicates whether there
 	 *        are indeed changes that need to be synced).
 	 */
-	syncServerDocPatch(documentID: number | null): Promise<void> {
+	syncServerDocPatch(documentID: string | null): Promise<void> {
 		if (documentID === null || !this.doServerSync) return Promise.resolve();
 
 		const createFetch = () => {
@@ -296,13 +296,13 @@ export class SaveDoc {
 			// 	body: JSON.stringify({
 			// 		id: documentID,
 			// 		patches,
-			// 		complibver: doc.info.componentLibVer
+			// 		complibver: doc.compLibVer
 			// 	})
 			// });
 
 			const resp = Promise.resolve(
-				this.doPatchSync()(`${documentID}`, patches, {
-					compLibVer: this.doc.info?.componentLibVer
+				this.doPatchSync()(documentID, patches, {
+					compLibVer: this.doc.compLibVer
 				})
 			);
 
@@ -386,25 +386,25 @@ export class SaveDoc {
 			//        (that way undo/redo can work on it as well- and any state the editor can edit is just HTML; that seems elegant).
 		}
 
-		const savedInfo = localSave.current[`D:${documentID}`];
-		if (!savedInfo) {
-			if (!this.doc.info?.componentLibVer)
-				throw new Error(
-					`Tried creating entry in localSave for document of ID "${documentID}" in syncDocLocal, but couldn't as compLibVer.currentVer is null.`
-				);
-			localSave.current[`D:${documentID}`] = {
-				id: `${documentID}`,
-				lastUsed: Date.now(),
-				body: this.syncingHTMLStr,
-				compLibVer: this.doc.info.componentLibVer
-			};
-		} else if (!localSaveEntryIsDoc(savedInfo)) throw new Error("Entry wasn't for a document.");
-		else {
-			savedInfo.lastUsed = Date.now();
-			savedInfo.body = this.syncingHTMLStr;
-			savedInfo.compLibVer = this.doc.info?.componentLibVer;
-			pruneLocalSave();
-		}
+		// const savedInfo = localSave.current[`D:${documentID}`];
+		// if (!savedInfo) {
+		// 	if (!this.doc.compLibVer)
+		// 		throw new Error(
+		// 			`Tried creating entry in localSave for document of ID "${documentID}" in syncDocLocal, but couldn't as compLibVer.currentVer is null.`
+		// 		);
+		// 	localSave.current[`D:${documentID}`] = {
+		// 		id: `${documentID}`,
+		// 		lastUsed: Date.now(),
+		// 		body: this.syncingHTMLStr,
+		// 		compLibVer: this.doc.compLibVer
+		// 	};
+		// } else if (!localSaveEntryIsDoc(savedInfo)) throw new Error("Entry wasn't for a document.");
+		// else {
+		// 	savedInfo.lastUsed = Date.now();
+		// 	savedInfo.body = this.syncingHTMLStr;
+		// 	savedInfo.compLibVer = this.doc.compLibVer;
+		// 	pruneLocalSave();
+		// }
 	}
 
 	/**
@@ -415,10 +415,9 @@ export class SaveDoc {
 	syncCompLocal(htmlStr?: string) {
 		const componentID = getComponentID(this.editorState());
 		const docEl = this.getDocEl();
-		if (componentID === null || !docEl) return;
+		if (!docEl) return;
 
 		const comp = this.comps.lib.find((comp) => comp.identName === componentID);
-		if (!comp) return;
 
 		// The reconstructHTMLString creates the HTML string for the document, taking
 		//  into account masked attribute values, and also gives a mapping of nodes to
@@ -447,7 +446,7 @@ export class SaveDoc {
 		//   comp.name,
 		// );
 
-		if (comp.type === 'element') {
+		if (componentID !== null && comp?.type === 'element') {
 			const { content, parts } = generateElCompContentStr(
 				docEl,
 				htmlStr,
@@ -456,10 +455,10 @@ export class SaveDoc {
 			);
 
 			updateCompEdit(componentID, { content, parts: parts.split('|') }, this.comps);
-		} else if (comp.type === 'style') {
+		} else if (componentID !== null && comp?.type === 'style') {
 			const { content, parts } = generateStyleCompContentStr(this.doc.styles, comp.name);
 			updateCompEdit(componentID, { content, parts: parts.split('|') }, this.comps);
-		} else if (comp.type === 'svelte') {
+		} else if (componentID !== null && comp?.type === 'svelte') {
 			updateCompEdit(componentID, { content: this.doc.body }, this.comps);
 		}
 

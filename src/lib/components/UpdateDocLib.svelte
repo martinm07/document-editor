@@ -27,25 +27,6 @@
 
 	let isExpanded = $state(false);
 
-	function reduceVerString(fullVer: string, newLen: number = 8) {
-		const newVerValChoices = 'abcdefghijklmnopqrstuvwxyz0123456789'.split('');
-		const fullVerVals = fullVer.replace(',', '');
-		const spacing = Math.floor(fullVerVals.length / newLen);
-
-		let final = '';
-		for (let i = 0; i < newLen; i++) {
-			const fullVerPart = fullVerVals.slice(i * spacing, (i + 1) * spacing);
-			const num = fullVerPart
-				.split('')
-				.map((char) => char.charCodeAt(0))
-				.reduce((p, c) => p + c, 0);
-			const letterChoice = newVerValChoices[num % newVerValChoices.length];
-			final += letterChoice;
-		}
-
-		return final;
-	}
-
 	let upgradeInfo: CompLibUpgradeInfo | null = $derived(compLib.upgradeInfo);
 
 	let submitStatus: 'error' | 'idle' | 'success' | 'none' = $state('none');
@@ -55,12 +36,12 @@
 	let oldComponentLibrary: Component[] | undefined;
 
 	let fetchedCompLibVer = false;
-	let oldCompLibVer: string = $state('');
+	let oldCompLibVer: string | null = $state(null);
 	watch(
-		() => doc.info?.componentLibVer,
+		() => doc.compLibVer,
 		() => {
-			if (fetchedCompLibVer || !doc.info?.componentLibVer) return;
-			oldCompLibVer = doc.info.componentLibVer;
+			if (fetchedCompLibVer || !doc.compLibVer) return;
+			oldCompLibVer = doc.compLibVer;
 			fetchedCompLibVer = true;
 		}
 	);
@@ -76,6 +57,13 @@
 		submitMsg = 'Fetching latest component library...';
 
 		const latestVersion = await getLatestCompLibVersion()();
+
+		if (latestVersion === null) {
+			submitMsg = 'error';
+			submitMsg = 'There is no latest component library; nothing to upgrade to.';
+			return;
+		}
+
 		const library = await getCompLib()(latestVersion);
 		// if (!resp.ok) {
 		// 	submitStatus = 'error';
@@ -88,7 +76,7 @@
 		// 	comp.type = componentTypeToString(comp.type);
 		// });
 
-		if (latestVersion !== upgradeInfo.to_version) {
+		if (latestVersion !== upgradeInfo.toVersion) {
 			submitStatus = 'error';
 			submitMsg = 'Current upgrade information is stale. Please reload the page.';
 			return;
@@ -100,26 +88,32 @@
 		mode.inCompLibUpgrade = true;
 		restoreState = bookmarkState();
 
-		oldCompLibVer = doc.info?.componentLibVer;
+		oldCompLibVer = doc.compLibVer;
 		oldComponentLibrary = $state.snapshot(savedComponents);
 
 		try {
-			if (doc.info) doc.info.componentLibVer = upgradeInfo.to_version;
+			if (doc.info) doc.compLibVer = upgradeInfo.toVersion;
 
-			upgradeDoc(getDocEl(), doc, oldComponentLibrary, library, $state.snapshot(upgradeInfo));
+			upgradeDoc(
+				getDocEl(),
+				doc,
+				oldComponentLibrary,
+				library.components,
+				$state.snapshot(upgradeInfo)
+			);
 
 			// componentElStyles.clear();
 			// library.forEach((comp) =>
 			//   setComponentStyles(comp, componentElStyles),
 			// );
-			loadComponentLibrary(library, 'document', componentElStyles);
+			loadComponentLibrary(library.components, 'document', componentElStyles);
 		} catch (err) {
 			submitStatus = 'error';
 			submitMsg = 'INTERNAL ERROR' + (err instanceof Error ? ': ' + err.message : '');
 
 			mode.disabled = false;
 			setTimeout(() => (mode.inCompLibUpgrade = false));
-			if (doc.info) doc.info.componentLibVer = oldCompLibVer;
+			if (doc.info) doc.compLibVer = oldCompLibVer;
 
 			// componentElStyles.clear();
 			// savedComponents.forEach((comp) =>
@@ -207,17 +201,17 @@
 				{/if}
 			</div>
 			<div class="flex items-center justify-center font-mono italic">
-				<div>{reduceVerString(oldCompLibVer)}</div>
+				<div>{oldCompLibVer}</div>
 				<ArrowRight class="mx-1" />
-				<div>{reduceVerString(compLib.latestVer ?? '')}</div>
+				<div>{compLib.latestVer ?? ''}</div>
 			</div>
 			{#if upgradeInfo}
 				<div class="mt-2">
-					{#each upgradeInfo.diff_msgs as msg}
+					{#each upgradeInfo.diffMsgs as msg}
 						<div class="mb-1">
 							<div class="flex items-center px-2">
 								<div class="font-mono italic">
-									{reduceVerString(msg.version)}
+									{msg.version}
 								</div>
 								<div class="font-bold">:&nbsp;</div>
 								<div class="text-sm">{msg.message}</div>
@@ -233,21 +227,21 @@
 					Components that will be affected:
 				</div>
 				<div class="mb-2 px-3 text-center">
-					{#each upgradeInfo.remove_list as name}
+					{#each upgradeInfo.removed as name}
 						<div class="inline-flex items-center" title="Delete &quot;{name}&quot;">
 							<div class="mr-1 font-mono text-lg font-bold text-red-700">D</div>
 							<div class="text-red-800 line-through">{name}</div>
 						</div>
 						<span class="mx-1 inline-block last-of-type:hidden">,&nbsp;</span>
 					{/each}
-					{#each upgradeInfo.content_list as name}
+					{#each upgradeInfo.contentChanges as name}
 						<div class="inline-flex items-center" title="Modify content of &quot;{name}&quot;'">
 							<div class="mr-1 font-mono text-lg font-bold text-yellow-700">M</div>
 							<div>{name}</div>
 						</div>
 						<span class="mx-1 inline-block last-of-type:hidden">,&nbsp;</span>
 					{/each}
-					{#each Object.entries(upgradeInfo.name_map) as [oldName, newName]}
+					{#each Object.entries(upgradeInfo.nameMap) as [oldName, newName]}
 						{#if oldName !== newName}
 							<div
 								class="inline-flex items-center text-green-800"

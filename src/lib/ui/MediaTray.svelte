@@ -55,7 +55,7 @@
 		}
 	}
 
-	async function removeMediaFile(filepath: string) {
+	async function removeMediaFile(nameToRemove: string) {
 		try {
 			// const resp = await fetch_('/documents/api/remove_media_file', {
 			// 	method: 'post',
@@ -72,13 +72,13 @@
 			// 		console.error(`"filename" (${filename}) isn't in mediaFiles:`, mediaFiles);
 			// 	}
 			// }
-			await removeMediaFile(filepath);
+			await doMediaRemove()(nameToRemove);
 
-			const fileIndex = mediaFiles.indexOf(filepath);
+			const fileIndex = mediaFiles.findIndex(([name]) => nameToRemove === name);
 			if (fileIndex !== -1) {
 				mediaFiles.splice(fileIndex, 1);
 			} else {
-				console.error(`"filepath" (${filepath}) isn't in mediaFiles:`, mediaFiles);
+				console.error(`"nameToRemove" (${nameToRemove}) isn't in mediaFiles:`, mediaFiles);
 			}
 		} catch (err) {
 			console.error(err);
@@ -221,12 +221,12 @@
 	{let popupEl: HTMLElement | undefined}
 	{let error: string = $state('')}
 	<div class="h-full overflow-y-scroll py-4">
-		{#each mediaFiles as filename, i}
+		{#each mediaFiles as [name, url], i}
 			<div class="flex">
 				<button
 					class="mr-2 ml-5 block grow rounded border-rock-200 p-1.5 text-start font-mono text-lg break-all text-rock-800 transition-transform duration-75 hover:bg-rock-100 active:scale-95 active:bg-rock-200"
 					onclick={async () => {
-						error = await saveToClipboard(filename);
+						error = await saveToClipboard(url);
 
 						showPopup = true;
 						clearTimeout(showPopupTransition);
@@ -246,11 +246,11 @@
 						}
 					}}
 				>
-					{filename}
+					{name}
 				</button>
 				<button
 					class="mr-6 rounded px-2 text-2xl text-steel-700 hover:bg-rock-100 active:bg-rock-200"
-					onclick={() => removeMediaFile(filename)}><XCircleIcon /></button
+					onclick={() => removeMediaFile(name)}><XCircleIcon /></button
 				>
 			</div>
 			<div class="mx-6 my-0.5 h-0.5 bg-rock-200" class:hidden={i === mediaFiles.length - 1}></div>

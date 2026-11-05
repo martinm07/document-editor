@@ -407,8 +407,8 @@ export function addCompLibVerAttrs(compInstance: DocumentFragment, doc: Doc) {
 
 	let current: Node | null = walker.currentNode;
 	while (current) {
-		if (current instanceof Element)
-			current.setAttribute('data-complibver', doc.info?.componentLibVer);
+		if (current instanceof Element && doc.compLibVer !== null)
+			current.setAttribute('data-complibver', doc.compLibVer);
 		current = walker.nextNode();
 	}
 }

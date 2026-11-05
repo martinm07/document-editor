@@ -17,7 +17,7 @@
 
 	const editorState: () => DocumentEditorProps['editorState'] = getContext('editorState');
 	const doChangePage: () => DocumentEditorProps['doChangePage'] = getContext('doChangePage');
-	const comps: () => Comps = getContext('comps');
+	const comps: Comps = getContext('comps');
 
 	function selectComponentEdit(comp: ComponentWithOptionalEditInfo) {
 		if (editorState().mode !== 'component') return;
@@ -31,7 +31,7 @@
 
 	function handleComponentRemoveOrRestore(comp: ComponentWithOptionalEditInfo) {
 		if (comp.state === 'removed') updateCompRestore(comp.identName ?? comp.name);
-		else updateCompRemove(comp.identName ?? comp.name, comps());
+		else updateCompRemove(comp.identName ?? comp.name, comps);
 	}
 
 	function getStarterContent(type: ComponentType, startName: number) {
@@ -49,7 +49,7 @@
 
 	function selectComponentCreate() {
 		let startName = 1;
-		while (comps().lib.some((comp) => comp.name === `unnamed-${startName}`)) startName++;
+		while (comps.lib.some((comp) => comp.name === `unnamed-${startName}`)) startName++;
 
 		// const edit = updateCompAdd({
 		// 	name: `unnamed-${startName}`,
@@ -92,7 +92,7 @@
 {#if editorState().mode === 'component'}
 	<div class:hidden={mode.sidebar !== 'viewcomponent'}>
 		<ComponentTray
-			comps={comps().lib}
+			comps={comps.lib}
 			mainAction={selectComponentEdit}
 			mainActionTag="a"
 			generateHref={(comp) => `/documents/edit/component/${comp.identName}`}

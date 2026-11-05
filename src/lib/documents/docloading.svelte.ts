@@ -12,8 +12,6 @@ import {
 	allComponentTags,
 	CompLib,
 	compLibEdits,
-	localSave,
-	localSaveEntryIsLib,
 	mode,
 	savedComponents,
 	type Doc
@@ -21,6 +19,7 @@ import {
 import { assign, request2AnimationFrames } from '../helper.js';
 import { parseStylesheetStr } from './DocStyles.svelte';
 import type { Component, EditorDocument } from '#lib/types.js';
+import { getUpgradeInfo } from '#lib/components/libraryupgrade.js';
 
 interface EditorInterfaceLoading {
 	doc: Doc;
@@ -151,22 +150,22 @@ export async function loadDocument(p: EditorInterfaceLoading) {
 			"'/documents/api/get_document_edit' didn't return string for key 'component_lib_ver'."
 		);
 
-	localSave.current[`D:${documentID}`] = {
-		id: `${documentID}`,
-		lastUsed: Date.now(),
-		body: data.body,
-		compLibVer: data.compLibVer
-	};
+	// localSave.current[`D:${documentID}`] = {
+	// 	id: `${documentID}`,
+	// 	lastUsed: Date.now(),
+	// 	body: data.body,
+	// 	compLibVer: data.compLibVer
+	// };
 
 	const componentLibrary = await p.getCompLib(componentLibVer);
-	loadComponentLibrary(componentLibrary, 'document', p.componentElStyles);
+	loadComponentLibrary(componentLibrary.components, 'document', p.componentElStyles);
 	console.log($state.snapshot(savedComponents));
 
-	localSave.current[`L:${componentLibVer}`] = {
-		version: componentLibVer,
-		lastUsed: Date.now(),
-		comps: savedComponents
-	};
+	// localSave.current[`L:${componentLibVer}`] = {
+	// 	version: componentLibVer,
+	// 	lastUsed: Date.now(),
+	// 	comps: savedComponents
+	// };
 
 	// if (!compLibVerInfo) console.error("Couldn't fetch info about component library");
 	// else {
@@ -179,6 +178,14 @@ export async function loadDocument(p: EditorInterfaceLoading) {
 	// 	};
 	// 	compLib.latestVer = compLibVerInfo.upgrade_to_version;
 	// }
+
+	const latestVer = await p.getLatestCompLibVersion();
+
+	if (latestVer !== null)
+		p.compLib.upgradeInfo = await getUpgradeInfo(componentLibrary, latestVer, p.getCompLib);
+	else p.compLib.upgradeInfo = null;
+
+	p.compLib.latestVer = latestVer;
 
 	const metaKeys = Object.keys(data).filter(
 		(key) => !['id', 'body', 'stylesheet', 'compLibVer'].includes(key)
@@ -253,14 +260,15 @@ export async function loadComponent(p: EditorInterfaceLoading) {
 	await p.flushServerChanges();
 
 	const latestCompLibVer = await p.getLatestCompLibVersion();
-	const componentLibrary = await p.getCompLib(latestCompLibVer);
+	const componentLibrary =
+		latestCompLibVer !== null ? (await p.getCompLib(latestCompLibVer)).components : [];
 	loadComponentLibrary(componentLibrary, 'component', p.componentElStyles);
 
-	localSave.current[`L:latest`] = {
-		version: 'latest',
-		lastUsed: Date.now(),
-		comps: $state.snapshot(savedComponents)
-	};
+	// localSave.current[`L:latest`] = {
+	// 	version: 'latest',
+	// 	lastUsed: Date.now(),
+	// 	comps: $state.snapshot(savedComponents)
+	// };
 
 	p.doc.resetDocInfo();
 
@@ -322,17 +330,16 @@ export async function loadComponent(p: EditorInterfaceLoading) {
 		// 		localSave.current[`L:${latestVer}`] = structuredClone(latestSavedLib);
 		// 	}
 	} catch (err) {
-		console.warn(
-			'Fetching latest component library version failed. Will attempt to use local store.'
-		);
-		const savedInfo = $state.snapshot(localSave.current[`L:latest`]);
-		if (!savedInfo) {
-			console.error(`Wasn't able to find latest version of component library stored locally.`);
-			p.compLib.latestVer = null;
-			break getLatestCompLibVer;
-		} else if (!localSaveEntryIsLib(savedInfo))
-			throw new Error(`Entry wasn't for a component library.`);
+		console.warn('Fetching latest component library version failed.');
+		break getLatestCompLibVer;
+		// const savedInfo = $state.snapshot(localSave.current[`L:latest`]);
+		// if (!savedInfo) {
+		// 	console.error(`Wasn't able to find latest version of component library stored locally.`);
+		// 	p.compLib.latestVer = null;
+		// 	break getLatestCompLibVer;
+		// } else if (!localSaveEntryIsLib(savedInfo))
+		// 	throw new Error(`Entry wasn't for a component library.`);
 
-		p.compLib.latestVer = savedInfo.version;
+		// p.compLib.latestVer = savedInfo.version;
 	}
 }

@@ -34,8 +34,7 @@ export type CompLibModifiedEdit = Partial<Component & { parts?: string[] }> & {
 };
 export type CompLibAddedEdit = Component & { identName: string; state: 'added' };
 
-export type CompLibEdit =
-	CompLibUnmodifiedEdit | CompLibRemoveEdit | CompLibModifiedEdit | CompLibAddedEdit;
+export type CompLibEdit = CompLibRemoveEdit | CompLibModifiedEdit | CompLibAddedEdit;
 
 export type ComponentWithEditInfo = Component & {
 	identName: string;
@@ -47,25 +46,19 @@ export type ComponentWithOptionalEditInfo = Component & {
 	state?: 'unmodified' | 'modified' | 'added' | 'removed';
 };
 
-export interface CompLibUpgrade {
-	message: string;
-	description?: string;
-	edits: CompLibEdit[];
-}
-
 //////////////////
 
 export interface EditorDocument<Meta extends { [key: string]: any }> extends Meta {
 	id: string;
 	body: string;
 	stylesheet: string;
-	compLibVer: string;
+	compLibVer: string | null;
 }
 
 export type DocumentMetaUpdate<Meta extends { [key: string]: any }> = Partial<Meta> & {
 	id?: string;
 	stylesheet?: string;
-	compLibVer?: string;
+	compLibVer?: string | null;
 };
 
 export interface DocumentPatch {

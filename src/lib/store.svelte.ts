@@ -139,7 +139,7 @@ export class GenericDoc<Meta extends { [key: string]: any }> {
 	id: string = $state('');
 	body: string = $state('');
 	styles: DocCSSRule[] = $state([]);
-	compLibVer: string = $state('');
+	compLibVer: string | null = $state(null);
 
 	svelteCompMounts: DocSvelteMount[] = $state([]);
 
@@ -177,7 +177,7 @@ export interface FileState {
 }
 export const fileStates: FileState[] = $state([]);
 
-export const mediaFiles: string[] = $state([]);
+export const mediaFiles: [name: string, url: string][] = $state([]);
 // export const fetchedMediaFiles: { yes: boolean } = $state({ yes: false });
 export const fetchedMediaFiles: { yes: boolean } = { yes: false };
 
@@ -228,14 +228,12 @@ export class CompLib {
 		this.doc = doc;
 
 		this.isLibUpToDate = $derived(
-			this.doc.info?.componentLibVer !== null &&
+			this.doc.compLibVer !== null &&
 				this.latestVer !== null &&
-				this.doc.info?.componentLibVer === this.latestVer
+				this.doc.compLibVer === this.latestVer
 		);
 
-		this.isVersFetched = $derived(
-			this.doc.info?.componentLibVer !== null && this.latestVer !== null
-		);
+		this.isVersFetched = $derived(this.doc.compLibVer !== null && this.latestVer !== null);
 	}
 
 	latestVer: string | null = $state(null);
@@ -251,44 +249,44 @@ export const compLibEdits = new PersistedState<CompLibEdit[]>('compLibEdits', []
 
 ///////////////////////////// LOCAL SAVING
 
-interface LocalSaveDocEntry {
-	id: string;
-	lastUsed: number;
-	body: string;
-	compLibVer: string;
-}
+// interface LocalSaveDocEntry {
+// 	id: string;
+// 	lastUsed: number;
+// 	body: string;
+// 	compLibVer: string | null;
+// }
 
-interface LocalSaveLibEntry {
-	version: string;
-	lastUsed: number;
-	comps: Component[];
-	definedTags?: string[];
-}
+// interface LocalSaveLibEntry {
+// 	version: string;
+// 	lastUsed: number;
+// 	comps: Component[];
+// 	definedTags?: string[];
+// }
 
-type LocalSaveEntry = LocalSaveDocEntry | LocalSaveLibEntry;
+// type LocalSaveEntry = LocalSaveDocEntry | LocalSaveLibEntry;
 
-export function localSaveEntryIsDoc(entry: LocalSaveEntry): entry is LocalSaveDocEntry {
-	return entry.hasOwnProperty('id');
-}
-export function localSaveEntryIsLib(entry: LocalSaveEntry): entry is LocalSaveLibEntry {
-	return entry.hasOwnProperty('version');
-}
+// export function localSaveEntryIsDoc(entry: LocalSaveEntry): entry is LocalSaveDocEntry {
+// 	return entry.hasOwnProperty('id');
+// }
+// export function localSaveEntryIsLib(entry: LocalSaveEntry): entry is LocalSaveLibEntry {
+// 	return entry.hasOwnProperty('version');
+// }
 
 // 7 days
-const MAX_LOCALSAVE_ENTRY_LIFETIME = 1000 * 60 * 60 * 24 * 7;
+// const MAX_LOCALSAVE_ENTRY_LIFETIME = 1000 * 60 * 60 * 24 * 7;
 
-export function pruneLocalSave() {
-	// This is a value of time in milliseconds
-	const now = Date.now();
+// export function pruneLocalSave() {
+// 	// This is a value of time in milliseconds
+// 	const now = Date.now();
 
-	Object.entries(localSave.current).forEach(([key, val]) => {
-		if (val && now - val.lastUsed > MAX_LOCALSAVE_ENTRY_LIFETIME) {
-			delete localSave.current[key];
-		}
-	});
-}
+// 	Object.entries(localSave.current).forEach(([key, val]) => {
+// 		if (val && now - val.lastUsed > MAX_LOCALSAVE_ENTRY_LIFETIME) {
+// 			delete localSave.current[key];
+// 		}
+// 	});
+// }
 
-type LocalSave = Partial<Record<string, LocalSaveEntry>>;
-export const localSave = new PersistedState<LocalSave>('localSave', {});
+// type LocalSave = Partial<Record<string, LocalSaveEntry>>;
+// export const localSave = new PersistedState<LocalSave>('localSave', {});
 
 export const debounceCancellables: ReturnType<typeof useDebounce>[] = [];

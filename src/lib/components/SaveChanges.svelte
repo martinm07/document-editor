@@ -3,11 +3,13 @@
 	import { fly } from 'svelte/transition';
 	import TrashIcon from 'phosphor-svelte/lib/TrashIcon';
 
-	import { compLibEdits } from '../store.svelte.js';
-	import { saveLibChanges, discardLibChanges } from './libraryeditor.svelte.js';
+	import { CompLib, compLibEdits } from '../store.svelte.js';
+	import { saveLibChanges, discardLibChanges, Comps } from './libraryeditor.svelte.js';
 	import { tada } from '../helper.js';
 	import type { DocumentEditorProps, EditorState } from '../App.svelte';
 
+	const comps: Comps = getContext('comps');
+	const compLib: CompLib = getContext('compLib');
 	const editorState: () => EditorState = getContext('editorState');
 	const doCompLibUpdate: () => DocumentEditorProps['doCompLibUpdate'] =
 		getContext('doCompLibUpdate');
@@ -35,7 +37,9 @@
 			message: commitMsg,
 			description: commitDesc,
 			submitBtn,
-			doCompLibUpdate: doCompLibUpdate()
+			doCompLibUpdate: doCompLibUpdate(),
+			comps,
+			compLib
 		});
 	}
 </script>

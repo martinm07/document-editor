@@ -322,6 +322,7 @@
 	import { type TempMutationRecord } from '../documents/docsyncing.js';
 	import type { EditorState } from '../App.svelte';
 	import type { ComponentMeta } from '#lib/types.js';
+	import ArrowClockwiseIcon from 'phosphor-svelte/lib/ArrowClockwiseIcon';
 
 	const comps: Comps = getContext('comps');
 	const editorState: () => EditorState = getContext('editorState');
@@ -485,7 +486,7 @@
 				onclick={() => {
 					if (comps.savedCurrent?.name === undefined) return;
 					nameState.inputVal = comps.savedCurrent.name ?? null;
-				}}><ion-icon name="refresh"></ion-icon></button
+				}}><ArrowClockwiseIcon /></button
 			>
 		</div>
 	{/if}
@@ -517,7 +518,7 @@
 			onclick={() => {
 				if (comps.savedCurrent?.description === undefined) return;
 				descriptionState.inputVal = comps.savedCurrent.description ?? null;
-			}}><ion-icon name="refresh"></ion-icon></button
+			}}><ArrowClockwiseIcon /></button
 		>
 	{/if}
 </div>
@@ -544,7 +545,7 @@
 			onclick={() => {
 				if (!tagsEditorEl || comps.savedCurrent?.tags === undefined) return;
 				tagsEditor.setTags(comps.savedCurrent.tags, tagsEditorEl);
-			}}><ion-icon name="refresh"></ion-icon></button
+			}}><ArrowClockwiseIcon /></button
 		>
 	{/if}
 </div>

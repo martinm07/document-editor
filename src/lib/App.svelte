@@ -3,7 +3,7 @@
   Here's some documentation for this component.
 
 -->
-<script module>
+<script module lang="ts">
 	const LOG_PATCH_SYNC = false;
 	const LOG_DOC_HIST = true;
 	const LOG_DOC_SAVING = false;
@@ -22,7 +22,7 @@
 		 * @param progress A number between 0 and 1 representing the progress of the upload
 		 */
 		informUploadProgress: (progress: number) => void;
-		informUploadStatus: (status: 'queued' | 'uploading' | 'failed') => void;
+		informUploadStatus: (status: 'queued' | 'uploading' | 'failed' | 'completed') => void;
 		informErrorMessage: (msg: string) => void;
 	}
 	interface FileUploadOutHooks {
@@ -30,13 +30,23 @@
 		getFilepath: () => MaybePromise<string>;
 	}
 
-	interface GenericDocumentEditorProps<Meta extends { [key: string]: any }> {
+	export interface CompLibInfo {
+		version: string;
+		previousVersion: string | null;
+		components: Component[];
+		nameChanges: [from: string, to: string][];
+		message: string;
+		description?: string;
+	}
+
+	export interface GenericDocumentEditorProps<Meta extends { [key: string]: any }> {
 		editorState: EditorState;
 		metaInputFields: {
 			[K in keyof Meta]-?: Snippet<[getval: () => Meta[K], setval: (val: Meta[K]) => void]>;
 		};
 
 		doChangePage: (changes: Partial<EditorState>) => void;
+		getDoc: (id: string) => MaybePromise<EditorDocument<Meta>>;
 		doFullSync: (
 			id: string,
 			body: string,
@@ -47,14 +57,13 @@
 			changes: DocumentPatch[],
 			metaChanges?: DocumentMetaUpdate<Meta>
 		) => MaybePromise<void>;
+		doPublish: (doc: EditorDocument<Meta>) => MaybePromise<void>;
+		getAllUploadedMedia: () => MaybePromise<[name: string, url: string][]>;
 		doMediaUpload: (file: File, hooks: FileUploadInHooks) => FileUploadOutHooks;
 		doMediaRemove: (filepath: string) => MaybePromise<void>;
-		doPublish: (doc: EditorDocument<Meta>) => MaybePromise<void>;
-		doCompLibUpdate: (info: CompLibUpgrade) => MaybePromise<void>;
-		getDoc: (id: string) => MaybePromise<EditorDocument<Meta>>;
-		getLatestCompLibVersion: () => MaybePromise<string>;
-		getCompLib: (version: string) => MaybePromise<Component[]>;
-		getAllUploadedMedia: () => MaybePromise<string[]>;
+		getLatestCompLibVersion: () => MaybePromise<string | null>;
+		getCompLib: (version: string) => MaybePromise<CompLibInfo>;
+		doCompLibUpdate: (info: CompLibInfo) => MaybePromise<void>;
 	}
 
 	export type DocumentEditorProps = GenericDocumentEditorProps<any>;
@@ -145,7 +154,6 @@
 	import { handleSvelteCompMounts } from './svelte/sveltecomp.svelte.js';
 	import { Comps } from './components/libraryeditor.svelte.js';
 	import type {
-		CompLibUpgrade,
 		Component,
 		DocumentMetaUpdate,
 		DocumentPatch,
@@ -157,31 +165,31 @@
 		editorState,
 		metaInputFields,
 		doChangePage,
-		doPatchSync,
+		getDoc,
 		doFullSync,
+		doPatchSync,
+		doPublish,
+		getAllUploadedMedia,
 		doMediaUpload,
 		doMediaRemove,
-		doPublish,
-		doCompLibUpdate,
-		getDoc,
 		getLatestCompLibVersion,
 		getCompLib,
-		getAllUploadedMedia
+		doCompLibUpdate
 	}: GenericDocumentEditorProps<Meta> = $props();
 
 	setContext('editorState', () => editorState);
 	setContext('metaInputFields', () => metaInputFields);
 	setContext('doChangePage', () => doChangePage);
-	setContext('doPatchSync', () => doPatchSync);
+	setContext('getDoc', () => getDoc);
 	setContext('doFullSync', () => doFullSync);
+	setContext('doPatchSync', () => doPatchSync);
 	setContext('doPublish', () => doPublish);
+	setContext('getAllUploadedMedia', () => getAllUploadedMedia);
 	setContext('doMediaUpload', () => doMediaUpload);
 	setContext('doMediaRemove', () => doMediaRemove);
-	setContext('doCompLibUpdate', () => doCompLibUpdate);
-	setContext('getDoc', () => getDoc);
 	setContext('getLatestCompLibVersion', () => getLatestCompLibVersion);
 	setContext('getCompLib', () => getCompLib);
-	setContext('getAllUploadedMedia', () => getAllUploadedMedia);
+	setContext('doCompLibUpdate', () => doCompLibUpdate);
 
 	const doc = new GenericDoc<Meta>();
 	setContext('doc', doc);
@@ -191,9 +199,7 @@
 	const compLib = new CompLib(doc);
 	setContext('compLib', compLib);
 
-	let documentID = $derived(
-		editorState.mode === 'document' ? Number.parseInt(editorState.resourceName) : null
-	);
+	let documentID = $derived(editorState.mode === 'document' ? editorState.resourceName : null);
 	let componentID = $derived(editorState.mode === 'component' ? editorState.resourceName : null);
 
 	let patchSync: boolean | null = null;

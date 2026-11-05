@@ -10,13 +10,14 @@ import {
 	extractPartsFromStyleCompStr,
 	getCompNameAndPart
 } from './component.svelte';
+import type { CompLibInfo, DocumentEditorProps } from '#lib/App.svelte';
 
 export interface CompLibUpgradeInfo {
-	to_version: string;
-	name_map: { [oldName: string]: string | undefined };
-	content_list: string[];
-	remove_list: string[];
-	diff_msgs: {
+	toVersion: string;
+	nameMap: { [oldName: string]: string | undefined };
+	contentChanges: string[];
+	removed: string[];
+	diffMsgs: {
 		version: string;
 		message: string;
 		description?: string;
@@ -151,7 +152,7 @@ const createElCompLibDiff = (
 	/** List of components that do have a mapping from the old component library to new the new version (i.e. that *could* have been edited). The component's data in the old component library is under the "old" field, and the new data is in the "new" field. */
 	const editedComps: EditedElCompInfo[] = [];
 
-	const nameMap = info.name_map;
+	const nameMap = info.nameMap;
 	// Populate removedComps and editedComps, using nameMap
 	oldCompLib.forEach((old) => {
 		const mapped = nameMap[old.name];
@@ -234,9 +235,9 @@ const handleEditedElCompParts = (
 		if (!editInfo) continue;
 
 		const dataCompLibVer = el.getAttribute('data-complibver');
-		if (dataCompLibVer === info.to_version) {
+		if (dataCompLibVer === info.toVersion) {
 			// prettier-ignore
-			console.log("Skipping updating attributes of element", el, "due to element having data-complibver value of", info.to_version, "which indicates that it has already been upgraded.");
+			console.log("Skipping updating attributes of element", el, "due to element having data-complibver value of", info.toVersion, "which indicates that it has already been upgraded.");
 			continue;
 		}
 
@@ -259,7 +260,7 @@ const handleEditedElCompParts = (
 			el.setAttribute(attr.name, attr.value);
 		});
 
-		el.setAttribute('data-complibver', info.to_version);
+		el.setAttribute('data-complibver', info.toVersion);
 	}
 };
 
@@ -462,7 +463,7 @@ const createStyleCompLibDiff = (
 	const removedComps: string[] = [];
 	const editedComps: EditedStyleCompInfo[] = [];
 
-	const nameMap = info.name_map;
+	const nameMap = info.nameMap;
 	oldCompLib.forEach((old) => {
 		const mapped = nameMap[old.name];
 		if (mapped !== undefined) {
@@ -609,7 +610,7 @@ const createSvelteCompLibDiff = (
 	const removedComps: string[] = [];
 	const editedComps: EditedSvelteCompInfo[] = [];
 
-	const nameMap = info.name_map;
+	const nameMap = info.nameMap;
 	oldCompLib.forEach((old) => {
 		const mapped = nameMap[old.name];
 		if (mapped !== undefined) {
@@ -688,6 +689,98 @@ const handleEditedSvelteComponents = (
 };
 
 ///////////////////////////
+
+export async function getUpgradeInfo(
+	oldCompLib: CompLibInfo,
+	latestVersion: string,
+	getCompLib: DocumentEditorProps['getCompLib']
+): Promise<CompLibUpgradeInfo> {
+	const nameMap: { [key: string]: string } = {};
+	oldCompLib.components.forEach((comp) => (nameMap[comp.name] = comp.name));
+
+	const contentChanges: string[] = [];
+	const removed: string[] = [];
+	const diffMsgs: {
+		version: string;
+		message: string;
+		description?: string;
+	}[] = [];
+
+	let currentVersion: string | null = latestVersion;
+	let currentCompLib: CompLibInfo = oldCompLib;
+	console.log('---Outside loop. ', currentVersion, currentCompLib);
+	while (currentVersion !== null && currentVersion !== oldCompLib.version) {
+		try {
+			currentCompLib = await getCompLib(currentVersion);
+		} catch (err) {
+			console.log('--- INSIDE LOOP; FAILED GETTING COMP LIB VERSION', currentVersion);
+			// An error is likely to due to the requested library version not existing
+			if (err instanceof Error) console.error(err.message);
+			break;
+		}
+
+		// Add message & description to diffMsgs
+
+		console.log('---inside loop. Adding difMs. Version: ', currentVersion, currentCompLib);
+		diffMsgs.push({
+			version: currentVersion,
+			message: currentCompLib.message,
+			description: currentCompLib.description
+		});
+
+		// Update nameMap entries (so that they map from the document's compononent library to currentCompLib)
+
+		const nameMapEntries = Object.entries(nameMap);
+		for (const [from, to] of currentCompLib.nameChanges) {
+			const existingMappingKey = nameMapEntries.find(([, existingTo]) => existingTo === from)?.[0];
+			if (existingMappingKey !== undefined) nameMap[existingMappingKey] = to;
+			else nameMap[from] = to;
+		}
+
+		Object.entries(nameMap).forEach(([from, to]) => {
+			if (!currentCompLib?.components.some((comp) => comp.name === to)) {
+				// This component was removed in an update; we free up this entry in the name map
+				delete nameMap[from];
+			}
+		});
+
+		// Update currentVersion
+		currentVersion = currentCompLib.previousVersion;
+	}
+
+	// const oldCompLib = componentLibrary.components;
+	const newCompLib = currentCompLib.components;
+
+	oldCompLib.components.forEach((old) => {
+		const mapped = nameMap[old.name];
+		if (mapped) {
+			// If there's a mapping for this component from the old version to the new version, we should check if between these two versions
+			//  the content was modified
+			const new_ = newCompLib.find((comp) => comp.name === mapped);
+			if (!new_) {
+				console.warn(
+					`Unexpectedly didn't find match in newCompLib despite having match in nameMap for oldName '${old.name}'`,
+					nameMap,
+					newCompLib
+				);
+				return;
+			}
+
+			if (old.content !== new_.content) contentChanges.push(old.name);
+		} else {
+			// If there isn't a mapping to the new version of the component library, that implies that this component was removed
+			removed.push(old.name);
+		}
+	});
+
+	return {
+		toVersion: latestVersion,
+		nameMap,
+		contentChanges,
+		removed,
+		diffMsgs
+	};
+}
 
 export function upgradeDoc(
 	docContainer: HTMLElement,
