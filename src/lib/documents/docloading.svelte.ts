@@ -137,18 +137,12 @@ export async function loadDocument(p: EditorInterfaceLoading) {
 			id: `${documentID}`,
 			body: '',
 			stylesheet: '',
-			compLibVer: ''
+			compLibVer: null
 		};
 		// TODO: Put this in a conditional so it only happens for actual 404 errors
 		//       Make the error given by getDoc() displayed otherwise as well, I think.
 		p.doc.is404 = true;
 	}
-
-	const componentLibVer = data.compLibVer;
-	if (typeof componentLibVer !== 'string')
-		throw new Error(
-			"'/documents/api/get_document_edit' didn't return string for key 'component_lib_ver'."
-		);
 
 	// localSave.current[`D:${documentID}`] = {
 	// 	id: `${documentID}`,
@@ -157,8 +151,9 @@ export async function loadDocument(p: EditorInterfaceLoading) {
 	// 	compLibVer: data.compLibVer
 	// };
 
-	const componentLibrary = await p.getCompLib(componentLibVer);
-	loadComponentLibrary(componentLibrary.components, 'document', p.componentElStyles);
+	const componentLibrary =
+		data.compLibVer !== null ? (await p.getCompLib(data.compLibVer)).components : [];
+	loadComponentLibrary(componentLibrary, 'document', p.componentElStyles);
 	console.log($state.snapshot(savedComponents));
 
 	// localSave.current[`L:${componentLibVer}`] = {

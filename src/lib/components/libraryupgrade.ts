@@ -691,12 +691,13 @@ const handleEditedSvelteComponents = (
 ///////////////////////////
 
 export async function getUpgradeInfo(
-	oldCompLib: CompLibInfo,
+	oldVersion: string | null,
 	latestVersion: string,
+	oldCompLib: Component[],
 	getCompLib: DocumentEditorProps['getCompLib']
 ): Promise<CompLibUpgradeInfo> {
 	const nameMap: { [key: string]: string } = {};
-	oldCompLib.components.forEach((comp) => (nameMap[comp.name] = comp.name));
+	oldCompLib.forEach((comp) => (nameMap[comp.name] = comp.name));
 
 	const contentChanges: string[] = [];
 	const removed: string[] = [];
@@ -707,13 +708,11 @@ export async function getUpgradeInfo(
 	}[] = [];
 
 	let currentVersion: string | null = latestVersion;
-	let currentCompLib: CompLibInfo = oldCompLib;
-	console.log('---Outside loop. ', currentVersion, currentCompLib);
-	while (currentVersion !== null && currentVersion !== oldCompLib.version) {
+	let currentCompLib: CompLibInfo | null = null;
+	while (currentVersion !== null && currentVersion !== oldVersion) {
 		try {
 			currentCompLib = await getCompLib(currentVersion);
 		} catch (err) {
-			console.log('--- INSIDE LOOP; FAILED GETTING COMP LIB VERSION', currentVersion);
 			// An error is likely to due to the requested library version not existing
 			if (err instanceof Error) console.error(err.message);
 			break;
@@ -721,7 +720,6 @@ export async function getUpgradeInfo(
 
 		// Add message & description to diffMsgs
 
-		console.log('---inside loop. Adding difMs. Version: ', currentVersion, currentCompLib);
 		diffMsgs.push({
 			version: currentVersion,
 			message: currentCompLib.message,
@@ -748,10 +746,9 @@ export async function getUpgradeInfo(
 		currentVersion = currentCompLib.previousVersion;
 	}
 
-	// const oldCompLib = componentLibrary.components;
-	const newCompLib = currentCompLib.components;
+	const newCompLib = currentCompLib?.components ?? oldCompLib;
 
-	oldCompLib.components.forEach((old) => {
+	oldCompLib.forEach((old) => {
 		const mapped = nameMap[old.name];
 		if (mapped) {
 			// If there's a mapping for this component from the old version to the new version, we should check if between these two versions
