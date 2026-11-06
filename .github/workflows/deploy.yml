@@ -37,8 +37,6 @@ jobs:
       - name: Configure Pages
         id: pages
         uses: actions/configure-pages@v6
-        with:
-          static_site_generator: sveltekit
 
       - name: Build
         # Run `vite build` directly (as `npm run build` also packages the library)
