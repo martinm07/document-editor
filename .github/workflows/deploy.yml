@@ -1,0 +1,66 @@
+name: Deploy to GitHub Pages
+
+on:
+  # push:
+  #   branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build_site:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure Pages
+        id: pages
+        uses: actions/configure-pages@v6
+        with:
+          static_site_generator: sveltekit
+
+      - name: Build
+        # Run `vite build` directly (as `npm run build` also packages the library)
+        run: npx vite build
+        env:
+          # https://docs.github.com/en/actions/reference/workflows-and-actions/contexts#steps-context
+          # This references an output from the 'Configure Pages'; all outputs can be seen here: https://github.com/actions/configure-pages/blob/main/action.yml
+          BASE_PATH: ${{ steps.pages.outputs.base_path }}
+
+      - name: Upload artifacts
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build
+
+  deploy:
+    needs: build_site
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      # https://github.com/actions/deploy-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
