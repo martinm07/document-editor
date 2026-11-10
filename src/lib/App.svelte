@@ -10,6 +10,8 @@
 	const LOG_SVELTE_BUNDLING = false;
 	const DO_SERVER_SYNC = true;
 	const SVELTE_PREVIEW_IN_HISTORY = false;
+	// TODO: Allow consumer to set this to `true` (and provide utilities for setting up their server to serve the Svelte runtime, or perhaps configuring the editor to use a 3rd-party URL like a CDN)
+	const EXTERNALIZE_SVELTE = false;
 
 	export interface EditorState {
 		mode: 'document' | 'component';
@@ -345,7 +347,10 @@
 	onDestroy(() => componentElStyles.destroy());
 	setContext('getComponentElStyles', () => componentElStyles);
 
-	const svelteCompiler = new SvelteCompiler({ debug: LOG_SVELTE_BUNDLING });
+	const svelteCompiler = new SvelteCompiler({
+		debug: LOG_SVELTE_BUNDLING,
+		externalizeSvelte: EXTERNALIZE_SVELTE
+	});
 	setContext('getSvelteCompiler', () => svelteCompiler);
 
 	const svelteCompStyles = new DynamicGroupStylesheet<string>();

@@ -7,6 +7,15 @@ import {
 } from './compiler.js';
 import helperModule from './helpermodule.svelte.js?raw';
 
+const svelteModules = import.meta.glob('./**/*.js', {
+	query: '?raw',
+	base: './svelte-lib',
+	// eager: true,
+	import: 'default'
+});
+
+// console.log(svelteModules);
+
 const isSvelteCompileError = (x: unknown): x is CompileError =>
 	x instanceof Error && 'code' in x && 'start' in x && 'end' in x;
 
@@ -28,9 +37,6 @@ type Diagnostic = (Warning | CompileError) & { severity: 'warning' | 'error' };
 
 /**
  * Map Svelte compiler diagnostics (positions) to CodeMirror-ready offsets.
- * Positions are resolved against the source the user sees; for TypeScript
- * source the types were stripped before compilation, so positions after a
- * stripped annotation may drift (accepted in this PoC).
  */
 export function toLintDiagnostics(source: string, diagnostics: Diagnostic[]): LintDiagnostic[] {
 	return diagnostics.map((d) => ({
@@ -40,53 +46,6 @@ export function toLintDiagnostics(source: string, diagnostics: Diagnostic[]): Li
 		message: d.code ? `${d.message} (${d.code})` : d.message
 	}));
 }
-
-// import svelteURL from "./svelte-runtime/svelte?url";
-// import svelteAnimateURL from "./svelte-runtime/svelte-animate?url";
-// import svelteAttachmentsURL from "./svelte-runtime/svelte-attachments?url";
-// import svelteCompilerURL from "./svelte-runtime/svelte-compiler?url";
-// import svelteEasingURL from "./svelte-runtime/svelte-easing?url";
-// import svelteEventsURL from "./svelte-runtime/svelte-events?url";
-// import svelteInternalURL from "./svelte-runtime/svelte-internal?url";
-// import svelteInternalClientURL from "./svelte-runtime/svelte-internal-client?url";
-// import svelteInternalDiscloseVersionURL from "./svelte-runtime/svelte-internal-disclose-version?url";
-// import svelteInternalFlagsAsyncURL from "./svelte-runtime/svelte-internal-flags-async?url";
-// import svelteInternalFlagsLegacyURL from "./svelte-runtime/svelte-internal-flags-legacy?url";
-// import svelteInternalFlagsTracingURL from "./svelte-runtime/svelte-internal-flags-tracing?url";
-// import svelteInternalServerURL from "./svelte-runtime/svelte-internal-server?url";
-// import svelteLegacyURL from "./svelte-runtime/svelte-legacy?url";
-// import svelteMotionURL from "./svelte-runtime/svelte-motion?url";
-// import sveltePackageJsonURL from "./svelte-runtime/svelte-package-json?url";
-// import svelteReactivityURL from "./svelte-runtime/svelte-reactivity?url";
-// import svelteReactivityWindowURL from "./svelte-runtime/svelte-reactivity-window?url";
-// import svelteServerURL from "./svelte-runtime/svelte-server?url";
-// import svelteStoreURL from "./svelte-runtime/svelte-store?url";
-// import svelteTransitionURL from "./svelte-runtime/svelte-transition?url";
-
-/** The asset URL (as served by the app) for each runtime asset id. */
-// export const RUNTIME_ASSET_FOR_ID: Record<string, string> = {
-//   svelte: svelteURL,
-//   "svelte/animate": svelteAnimateURL,
-//   "svelte/attachments": svelteAttachmentsURL,
-//   "svelte/compiler": svelteCompilerURL,
-//   "svelte/easing": svelteEasingURL,
-//   "svelte/events": svelteEventsURL,
-//   "svelte/internal": svelteInternalURL,
-//   "svelte/internal/client": svelteInternalClientURL,
-//   "svelte/internal/disclose-version": svelteInternalDiscloseVersionURL,
-//   "svelte/internal/flags/async": svelteInternalFlagsAsyncURL,
-//   "svelte/internal/flags/legacy": svelteInternalFlagsLegacyURL,
-//   "svelte/internal/flags/tracing": svelteInternalFlagsTracingURL,
-//   "svelte/internal/server": svelteInternalServerURL,
-//   "svelte/legacy": svelteLegacyURL,
-//   "svelte/motion": svelteMotionURL,
-//   "svelte/package.json": sveltePackageJsonURL,
-//   "svelte/reactivity": svelteReactivityURL,
-//   "svelte/reactivity/window": svelteReactivityWindowURL,
-//   "svelte/server": svelteServerURL,
-//   "svelte/store": svelteStoreURL,
-//   "svelte/transition": svelteTransitionURL,
-// };
 
 // The runtime asset sources are fetched once per worker and cached.
 const fetchCache = new Map<string, Promise<string>>();
@@ -185,9 +144,9 @@ function createVirtualFilesPlugin(
 					fp = `/svelte-lib/${source.slice('svelte/'.length)}.js`;
 				else fp = source;
 
-				// Transform the module ID to include the server URL if the option is set
+				// Transform the module ID to include the server URL if the option is set, and we're keeping svelte imports external
 				let id: string;
-				if (opts?.makeImportsURLs) {
+				if (opts?.makeImportsURLs && opts?.externalizeSvelte) {
 					const urlID = new URL(fp, location.origin);
 					id = urlID.toString();
 				} else id = fp;
@@ -214,15 +173,25 @@ function createVirtualFilesPlugin(
 			}
 		},
 
-		load(id, options) {
+		async load(id, options) {
 			// https://rollupjs.org/plugin-development/#load
 
 			if (Object.hasOwn(files, id)) {
 				return files[id];
 			} else if (id.startsWith('/svelte-lib/')) {
-				if (opts?.debug) console.log('FETCHING LOCAL: ' + id);
-				return fetchURL(id);
+				const toFetch = '.' + id.slice('/svelte-lib'.length);
+
+				if (opts?.debug) console.log('Fetching svelte module: ' + toFetch);
+
+				if (Object.hasOwn(svelteModules, toFetch)) {
+					return svelteModules[toFetch]();
+				} else {
+					if (opts?.debug)
+						console.error(`Failed fetching svelte module (not found): ${toFetch}`, svelteModules);
+					return;
+				}
 			} else if (id.startsWith('http://') || id.startsWith('https://')) {
+				console.log(id);
 				return fetchURL(id);
 			}
 

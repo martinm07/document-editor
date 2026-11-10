@@ -11,7 +11,21 @@ export interface BundlerSendMessage {
 	id: number;
 	files: Record<string, string>;
 	opts: {
+		/**
+		 * Makes the bundler keep imports to the Svelte runtime external (i.e. doesn't fetch and bundle the Svelte runtime code together with the svelte-type component code).
+		 * If set to `true`, it is expected that the server hosting the document editor (or published documnents) serves the Svelte runtime under paths starting with `/svelte-lib/`.
+		 *
+		 * TODO: Allow setting a 'base path' option for changing the expected URL of the Svelte runtime.
+		 */
 		externalizeSvelte?: boolean;
+		/**
+		 * Makes the bundler transform module specifiers referring to the local server (e.g. import { abc } from "./test/script.js" or import Hello from "/src/hello.js")
+		 * by prepending a URL specifier to the origin where this is executed (i.e. `location.origin`), (turning them into e.g. import { abc } from "https://martinm07.github.io/document-editor/test/script.js" or import Hello from "http://localhost:5173/src/hello.js").
+		 * This is important when showing previews in the document editor, which are loaded using SvelteCompiler.loadJSModule
+		 * using `blob:` URLs. When JS tries to run inside that blob URL, it doesn't have the server URL as the base, but "blob:..." as the base.
+		 * The code can't load modules stored on our server because it doesn't know the URL on our server; the code is executed on a different, made-up URL by the browser.
+		 * That's why we need this option set to true here (but not in compileForPublish, because that resulting JS is embedded in a <script> tag in the page).
+		 */
 		makeImportsURLs?: boolean;
 		debug?: boolean;
 	};
@@ -56,13 +70,15 @@ export class SvelteCompiler {
 	private id_: number = 0;
 	// Maps IDs to functions that resolve promises to return the argument when called.
 	private pendingCompiles = new Map<number, (output: BundlerReplyMessage) => void>();
-
 	worker: Worker;
+
+	externalizeSvelte: boolean;
 
 	debug: boolean;
 
-	constructor(opts?: { debug?: boolean }) {
+	constructor(opts?: { debug?: boolean; externalizeSvelte?: boolean }) {
 		this.debug = opts?.debug ?? false;
+		this.externalizeSvelte = opts?.externalizeSvelte ?? false;
 
 		// Vite automatically reads and resolves this URL construction to the web worker file.
 		// https://vite.dev/guide/features#web-workers
@@ -97,14 +113,8 @@ export class SvelteCompiler {
 				'virtual:component.svelte': svelteCode
 			},
 			opts: {
-				externalizeSvelte: true,
-				// This option makes the bundler turn module specifiers referring to the local server (e.g. import { abc } from "./test/script.js" or import Hello from "/src/hello.js")
-				//  and prepends a URL specifier to the origin where this is executed (i.e. location.origin), (turning them into e.g. import { abc } from "https://structural-design.eu/test/script.js" or import Hello from "http://localhost:5173/src/hello.js").
-				// This is important when showing previews in the document editor, which are loaded using SvelteCompiler.loadJSModule
-				//  which uses blob: URLs. So when our code tries to run inside that blob URL, it doesn't have the server URL as the base, but "blob:..." as the base.
-				//  The code can't load modules stored on our server because it doesn't know the URL on our server because the code executed on a different. made-up URL by the browser.
-				//  That's why we need this option set to true here (but not in compileForPublish, because that resulting JS is embedded in a <script> tag in the page in the /documents/read view)
-				makeImportsURLs: true,
+				externalizeSvelte: this.externalizeSvelte,
+				makeImportsURLs: false,
 				debug: this.debug
 			}
 		};
@@ -169,7 +179,7 @@ export class SvelteCompiler {
 				'virtual:entry.js': entryFileJS
 			},
 			opts: {
-				externalizeSvelte: true,
+				externalizeSvelte: this.externalizeSvelte,
 				makeImportsURLs: false,
 				debug: this.debug
 			}

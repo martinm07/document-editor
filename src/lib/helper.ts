@@ -402,8 +402,6 @@ export function parseHTMLFragment(htmlStr: string, parentNamespace?: string | nu
 	return Array.from(root.childNodes);
 }
 
-console.log(parseHTMLFragment('Hello wlrd'));
-
 // https://stackoverflow.com/a/32922084/11493659
 export function deepEqual(x: any, y: any): boolean {
 	const ok = Object.keys,

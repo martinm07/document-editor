@@ -5,6 +5,7 @@
 	"license": "GPL-3.0-or-later",
 	"scripts": {
 		"dev": "vite dev",
+		"build:runtime": "node scripts/build-svelte-runtime.mjs",
 		"build": "vite build && npm run prepack",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
@@ -50,6 +51,7 @@
 		"prettier-plugin-svelte": "^4.1.0",
 		"prettier-plugin-tailwindcss": "^0.8.0",
 		"publint": "^0.3.21",
+		"resolve.exports": "^2.0.4",
 		"svelte-check": "^4.6.0",
 		"tailwindcss": "^4.3.0",
 		"typescript": "^6.0.3",
@@ -84,7 +86,7 @@
 		"paneforge": "^1.0.2",
 		"phosphor-svelte": "^3.1.1",
 		"runed": "^0.28.0",
-		"svelte": "^5.57.2",
+		"svelte": "^5.0.0",
 		"thememirror": "^2.0.1"
 	}
 }
