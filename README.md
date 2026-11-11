@@ -101,7 +101,7 @@ npm run dev
 
 ## Contributing
 
-Feel free to reach out if your interest has been piqued— don't be a stranger :-)
+Feel free to reach out to [martin.github07@gmail.com](mailto:martin.github07@gmail.com) if your interest has been piqued— don't be a stranger :-)
 
 ## License
 
