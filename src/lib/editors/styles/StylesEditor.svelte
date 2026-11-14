@@ -16,6 +16,7 @@
 	import { getCompNameAndPart } from '../../components/component.svelte.js';
 	import type { DocumentEditorProps } from '../../App.svelte';
 	import type { Component, ComponentWithOptionalEditInfo } from '#lib/types.js';
+	import XCircleIcon from 'phosphor-svelte/lib/XCircleIcon';
 
 	const doc: Doc = getContext('doc');
 	const editorState: () => DocumentEditorProps['editorState'] = getContext('editorState');
@@ -157,7 +158,7 @@
 			const stylesI = stylesGrouped.slice(0, i).reduce((p, c) => p + c.styles.length, 0);
 			doc.styles.splice(stylesI, numInGroup);
 		}}
-		aria-label="Remove attribute"><ion-icon name="close-circle-outline"></ion-icon></button
+		aria-label="Remove attribute"><XCircleIcon /></button
 	>
 {/snippet}
 

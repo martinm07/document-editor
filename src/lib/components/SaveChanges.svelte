@@ -2,6 +2,7 @@
 	import { getContext } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import TrashIcon from 'phosphor-svelte/lib/TrashIcon';
+	import XIcon from 'phosphor-svelte/lib/XIcon';
 
 	import { CompLib, compLibEdits } from '../store.svelte.js';
 	import { saveLibChanges, discardLibChanges, Comps } from './libraryeditor.svelte.js';
@@ -100,7 +101,7 @@
 			aria-label="Close"
 			onclick={() => (showFullModal = false)}
 		>
-			<ion-icon name="close"></ion-icon>
+			<XIcon />
 		</button>
 	</div>
 {/if}

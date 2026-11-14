@@ -121,6 +121,8 @@
 	import MDNPseudoLinks from './mdn_pseudo_links.json';
 	import type { DynamicStylesheet } from '../../helper.js';
 	import type { EditorState } from '../../App.svelte';
+	import QuestionIcon from 'phosphor-svelte/lib/QuestionIcon';
+	import XCircleIcon from 'phosphor-svelte/lib/XCircleIcon';
 
 	const editorState: () => EditorState = getContext('editorState');
 
@@ -185,7 +187,7 @@
 					target="_blank"
 					aria-label="Open MDN docs"
 				>
-					<ion-icon name="help-circle-outline"></ion-icon>
+					<QuestionIcon />
 				</a>
 				<button
 					type="button"
@@ -198,8 +200,7 @@
 							styleCache.remove(el, attrToRemove);
 						});
 					}}
-					aria-label="Remove pseudo class styles"
-					><ion-icon name="close-circle-outline"></ion-icon></button
+					aria-label="Remove pseudo class styles"><XCircleIcon /></button
 				>
 			</div>
 			<CSSEditor

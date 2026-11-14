@@ -92,6 +92,8 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
 	import { watch, FiniteStateMachine } from 'runed';
+	import QuestionIcon from 'phosphor-svelte/lib/QuestionIcon';
+	import XCircleIcon from 'phosphor-svelte/lib/XCircleIcon';
 
 	import tagAttributes from './tag_attributes.json';
 	import FitContentWrapTextarea from '../../ui/FitContentWrapTextarea.svelte';
@@ -580,13 +582,13 @@
 					tabindex={!attr.valid ? -1 : 0}
 					aria-label="Open MDN docs"
 				>
-					<ion-icon name="help-circle-outline"></ion-icon>
+					<QuestionIcon />
 				</a>
 				<button
 					type="button"
 					class="inline-flex items-center justify-center text-xl text-red-700 hover:opacity-60"
 					onclick={() => attributes.splice(i, 1)}
-					aria-label="Remove attribute"><ion-icon name="close-circle-outline"></ion-icon></button
+					aria-label="Remove attribute"><QuestionIcon /></button
 				>
 			</div>
 			{#if dataComponent.current.includes('modal') && attr.name === 'data-component'}

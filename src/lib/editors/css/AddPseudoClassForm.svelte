@@ -1,6 +1,7 @@
 <script lang="ts">
 	import PlusIcon from 'phosphor-svelte/lib/PlusIcon';
 	import ArrowBendUpLeftIcon from 'phosphor-svelte/lib/ArrowBendUpLeftIcon';
+	import QuestionIcon from 'phosphor-svelte/lib/QuestionIcon';
 
 	import FitContentInput from '../../ui/FitContentInput.svelte';
 	import MDNPseudoLinks from './mdn_pseudo_links.json';
@@ -77,6 +78,6 @@
 		class="ml-1 inline-flex items-center text-xl text-rock-700 hover:opacity-60 [.disabled]:pointer-events-none [.disabled]:opacity-50"
 		class:disabled={!helpLink}
 		aria-disabled={!helpLink}
-		target="_blank"><ion-icon name="help-circle-outline"></ion-icon></a
+		target="_blank"><QuestionIcon /></a
 	>
 </form>

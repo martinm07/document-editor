@@ -6,6 +6,7 @@
 	import { autocompleteSuggestions, selection } from '../../store.svelte.js';
 	import { calculateTotalOffset, findNodeFromOffset } from '../css/CSSEditor.svelte';
 	import tagAttributes from './../attributes/tag_attributes.json';
+	import QuestionIcon from 'phosphor-svelte/lib/QuestionIcon';
 
 	interface Props {
 		selected: Element[];
@@ -190,7 +191,7 @@
 	tabindex={!tagNameURL ? -1 : 0}
 	aria-label="Open MDN link"
 >
-	<ion-icon name="help-circle-outline"></ion-icon>
+	<QuestionIcon />
 </a>
 <div class="mt-3">
 	<button
