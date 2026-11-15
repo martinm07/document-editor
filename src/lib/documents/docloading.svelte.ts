@@ -99,6 +99,8 @@ export async function loadDocument(p: EditorInterfaceLoading) {
 
 	await p.flushServerChanges();
 
+	p.compLib.isVersFetched = false;
+
 	//  const resp = await fetch_(`/documents/api/get_document_edit?id=${documentID}`);
 
 	// let data;
@@ -162,25 +164,20 @@ export async function loadDocument(p: EditorInterfaceLoading) {
 	// 	comps: savedComponents
 	// };
 
-	// if (!compLibVerInfo) console.error("Couldn't fetch info about component library");
-	// else {
-	// 	compLib.upgradeInfo = {
-	// 		to_version: compLibVerInfo.upgrade_to_version,
-	// 		name_map: compLibVerInfo.upgrade_name_map,
-	// 		content_list: compLibVerInfo.upgrade_content_list,
-	// 		remove_list: compLibVerInfo.upgrade_remove_list,
-	// 		diff_msgs: compLibVerInfo.upgrade_diff_msgs
-	// 	};
-	// 	compLib.latestVer = compLibVerInfo.upgrade_to_version;
-	// }
-
 	const latestVer = await p.getLatestCompLibVersion();
 
-	if (latestVer !== null)
-		p.compLib.upgradeInfo = await getUpgradeInfo(componentLibrary, latestVer, p.getCompLib);
-	else p.compLib.upgradeInfo = null;
+	if (latestVer !== null) {
+		p.compLib.upgradeInfo = await getUpgradeInfo(
+			data.compLibVer,
+			latestVer,
+			componentLibrary,
+			p.getCompLib
+		);
+		console.log('🎈 upgradeInfo:', $state.snapshot(p.compLib.upgradeInfo));
+	} else p.compLib.upgradeInfo = null;
 
 	p.compLib.latestVer = latestVer;
+	p.compLib.isVersFetched = true;
 
 	const metaKeys = Object.keys(data).filter(
 		(key) => !['id', 'body', 'stylesheet', 'compLibVer'].includes(key)
@@ -193,66 +190,23 @@ export async function loadDocument(p: EditorInterfaceLoading) {
 	p.doc.compLibVer = data.compLibVer;
 	p.doc.body = data.body;
 	p.doc.styles = parseStylesheetStr(data['stylesheet']);
-	// if (resp.ok) doc.infoFetched = true;
 
 	console.groupCollapsed('Loaded data');
 	console.log(`${documentID}`);
 	console.log(data['body']);
 	console.groupEnd();
+
 	const parsedBody = parseHTMLFragment(data['body']);
 	loadDocBody(parsedBody, p);
-
-	// const tagsResp = await fetch_('/documents/api/get_all_tags');
-	// if (tagsResp.ok) {
-	// 	const allTags = await tagsResp.json();
-	// 	console.log(allTags);
-	// 	allDocumentTags.splice(0, allDocumentTags.length, ...allTags);
-	// }
 }
-
-// async function getSavedComponentLibrary(ver?: string): Promise<{
-// 	componentLibrary: SavedComponentOptionalIdentName[];
-// 	compLibVerInfo?: GetCompLibFetchReturn;
-// }> {
-// 	console.log('getting saved components library');
-
-// 	const URL = `/documents/api/get_component_library${typeof ver === 'string' ? '?ver=' + ver : ''}`;
-// 	const resp = await fetch_(URL);
-
-// 	if (!resp.ok) {
-// 		console.warn(
-// 			`Fetching component library version failed. Will attempt to use local store. Version: "${ver ?? 'latest'}"`
-// 		);
-// 		const savedInfo = $state.snapshot(localSave.current[`L:${ver ?? 'latest'}`]);
-// 		if (!savedInfo) {
-// 			console.error(
-// 				`Wasn't able to find requested version of component library stored locally. Version: "${ver ?? 'latest'}"`
-// 			);
-// 			return { componentLibrary: [] };
-// 		} else if (!localSaveEntryIsLib(savedInfo))
-// 			throw new Error(`Entry wasn't for a component library.`);
-
-// 		return { componentLibrary: savedInfo.comps };
-// 	}
-
-// 	const data: GetCompLibFetchReturn = await resp.json();
-// 	console.log(data);
-
-// 	data.library.forEach((comp) => {
-// 		comp.type = componentTypeToString(comp.type);
-// 	});
-
-// 	return {
-// 		componentLibrary: data.library,
-// 		compLibVerInfo: data
-// 	};
-// }
 
 export async function loadComponent(p: EditorInterfaceLoading) {
 	const componentID = getComponentID(p.editorState());
 	if (componentID === null) return;
 
 	await p.flushServerChanges();
+
+	p.compLib.isVersFetched = false;
 
 	const latestCompLibVer = await p.getLatestCompLibVersion();
 	const componentLibrary =
@@ -318,6 +272,7 @@ export async function loadComponent(p: EditorInterfaceLoading) {
 	getLatestCompLibVer: try {
 		const compLibLatestVer = await p.getLatestCompLibVersion();
 		p.compLib.latestVer = compLibLatestVer;
+		p.compLib.isLibUpToDate = true;
 
 		// 	const latestSavedLib = $state.snapshot(localSave.current['L:latest']);
 		// 	if (latestSavedLib && localSaveEntryIsLib(latestSavedLib)) {

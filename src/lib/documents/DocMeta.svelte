@@ -103,6 +103,18 @@
 			lazy: true
 		}
 	);
+
+	watch(
+		() => doc.compLibVer,
+		(curr, prev) => {
+			if (editorState().mode === 'document' && curr !== prev) {
+				docSaver.syncDocMetadataDebounce(doc.id, { compLibVer: curr });
+			}
+		},
+		{
+			lazy: true
+		}
+	);
 </script>
 
 <div

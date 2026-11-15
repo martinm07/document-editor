@@ -223,27 +223,19 @@ export const compPartToInheritedAttrs: Map<string, PropsList> = new SvelteMap();
 export const allComponentTags: string[] = $state([]);
 
 export class CompLib {
-	doc: Doc;
+	doc: Doc | undefined = undefined;
+
 	constructor(doc: Doc) {
 		this.doc = doc;
-
-		this.isLibUpToDate = $derived(
-			this.doc.compLibVer !== null &&
-				this.latestVer !== null &&
-				this.doc.compLibVer === this.latestVer
-		);
-
-		this.isVersFetched = $derived(this.doc.compLibVer !== null && this.latestVer !== null);
 	}
 
 	latestVer: string | null = $state(null);
 
-	isLibUpToDate: boolean;
-	isVersFetched: boolean;
+	isLibUpToDate = $derived(!this.doc || this.doc.compLibVer === this.latestVer);
+	isVersFetched = $state(false);
 
 	upgradeInfo: CompLibUpgradeInfo | null = $state(null);
 }
-// export const compLib = new CompLib();
 
 export const compLibEdits = new PersistedState<CompLibEdit[]>('compLibEdits', []);
 

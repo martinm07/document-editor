@@ -92,7 +92,7 @@
 		oldComponentLibrary = $state.snapshot(savedComponents);
 
 		try {
-			if (doc.info) doc.compLibVer = upgradeInfo.toVersion;
+			doc.compLibVer = upgradeInfo.toVersion;
 
 			upgradeDoc(
 				getDocEl(),
@@ -113,7 +113,7 @@
 
 			mode.disabled = false;
 			setTimeout(() => (mode.inCompLibUpgrade = false));
-			if (doc.info) doc.compLibVer = oldCompLibVer;
+			doc.compLibVer = oldCompLibVer;
 
 			// componentElStyles.clear();
 			// savedComponents.forEach((comp) =>
