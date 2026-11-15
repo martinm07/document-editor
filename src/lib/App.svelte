@@ -610,9 +610,10 @@
 	class="relative h-screen!"
 	autoSaveId="editor-horizontal-pane-sizes"
 >
-	<Pane>
+	<Pane defaultSize={35}>
 		<PaneGroup direction="vertical" autoSaveId="editor-sidebar-vertical-pane-sizes">
 			<Pane
+				defaultSize={80}
 				class="border-r-2 border-rock-300 bg-background"
 				style="scrollbar-color: var(--rock-100) var(--background);"
 			>
