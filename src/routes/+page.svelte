@@ -11,6 +11,9 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 
+	import tutorialBody from './sample-document.html?raw';
+	import tutorialStyles from './sample-document-styles.css?raw';
+
 	function initEditorState() {
 		let startMode: 'document' | 'component';
 		let startResourceName: string;
@@ -147,11 +150,11 @@
 		if (!existingData) {
 			// Create nonexistant document.
 			const final = {
-				id: '1',
-				body: '',
-				stylesheet: '',
+				id,
+				body: id === '1' ? tutorialBody : '',
+				stylesheet: id === '1' ? tutorialStyles : '',
 				compLibVer: getLatestCompLibVersion(),
-				title: 'hi',
+				title: id === '1' ? 'Editor Tutorial' : 'Empty Document',
 				description: '',
 				tags: [],
 				accent: '',
