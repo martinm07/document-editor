@@ -68,6 +68,7 @@
 	function adjustGroup(
 		group: { rect: Rect; origRect: Rect; el: HTMLElement }[],
 		doc?: Element,
+		scrollContainer?: Element,
 		OFFSET: number = 5
 	) {
 		// Sort the array by the order in which the elements appear in the DOM
@@ -99,7 +100,7 @@
 				newEl.style.width = `${rect.w}px`;
 				el.insertBefore(newEl, null);
 				request2AnimationFrames(() => {
-					const newRect = createRect(newEl, doc);
+					const newRect = createRect(newEl, doc, scrollContainer);
 					el.style.transform +=
 						seg.direction === 'right'
 							? ` translateX(${rect.x - newRect.x}px)`
@@ -217,7 +218,7 @@
 			// await timeoutPromise(0);
 
 			for (const el of potentialLocations) {
-				const rect = createRect(el, this.doc);
+				const rect = createRect(el, this.doc, this.scrollContainer);
 
 				// Check if there's already a group created that this element falls into
 				const group = this.locationGroups.find(([key]) => rectsSame(key, rect, this.MAXDIFF));
@@ -226,7 +227,7 @@
 					// If this element hasn't already been added to the group, then add it and adjust
 					if (!group[1].some((item) => item.el === el)) {
 						group[1].push({ rect, origRect: structuredClone(rect), el });
-						adjustGroup(group[1], this.doc, this.OFFSET);
+						adjustGroup(group[1], this.doc, this.scrollContainer, this.OFFSET);
 					}
 					// If not, check all potential locations for another one the same rect as this, and create a group of
 					//  those two. Since we're adding one at a time, and check for groups beforehand, there will always only ever
@@ -248,7 +249,12 @@
 								{ rect, origRect: structuredClone(rect), el }
 							]
 						]);
-						adjustGroup(this.locationGroups.at(-1)![1], this.doc, this.OFFSET);
+						adjustGroup(
+							this.locationGroups.at(-1)![1],
+							this.doc,
+							this.scrollContainer,
+							this.OFFSET
+						);
 					}
 				}
 
