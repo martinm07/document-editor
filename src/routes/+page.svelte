@@ -6,13 +6,15 @@
 		MetaTextInputField,
 		MetaTextAreaField,
 		MetaTagsField,
-		type CompLibInfo
+		type CompLibInfo,
+		type Component
 	} from '#lib';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 
 	import tutorialBody from './sample-document.html?raw';
 	import tutorialStyles from './sample-document-styles.css?raw';
+	import tutorialCompLib from './sample-component-library.json';
 
 	function initEditorState() {
 		let startMode: 'document' | 'component';
@@ -53,6 +55,8 @@
 			replace: true,
 			shallow: true
 		});
+
+		return final;
 	}
 	function generateURL(state: EditorState) {
 		const query = new URLSearchParams();
@@ -63,7 +67,7 @@
 		return url;
 	}
 
-	initEditorState();
+	const editorStartState = initEditorState();
 
 	const metaInputFields = {
 		title: titleInput,
@@ -228,7 +232,16 @@
 	};
 
 	const getLatestCompLibVersion: DocumentEditorProps['getLatestCompLibVersion'] = () => {
-		return localStorage.getItem('COMPLIB-LATESTVER') ?? null;
+		const stored = localStorage.getItem('COMPLIB-LATESTVER');
+		if (stored !== null) return stored;
+
+		if (
+			stateIsEditorState(page.state) &&
+			page.state.resourceName === '1' &&
+			page.state.mode === 'document'
+		) {
+			return 'tutorialbase';
+		} else return null;
 	};
 
 	const getCompLib: DocumentEditorProps['getCompLib'] = (version) => {
@@ -240,6 +253,15 @@
 				nameChanges: [],
 				message: ''
 			};
+		else if (version === 'tutorialbase') {
+			return {
+				version: 'tutorialbase',
+				previousVersion: null,
+				components: tutorialCompLib as Component[],
+				nameChanges: [],
+				message: ''
+			};
+		}
 
 		const parsed: CompLibInfo | null = JSON.parse(
 			localStorage.getItem(`COMPLIB-VER-${version}`) ?? 'null'
@@ -254,9 +276,7 @@
 </svelte:head>
 
 <DocumentEditor
-	editorState={stateIsEditorState(page.state)
-		? page.state
-		: { resourceName: '1', mode: 'document', documentRedirect: null }}
+	editorState={stateIsEditorState(page.state) ? page.state : editorStartState}
 	{metaInputFields}
 	{doChangePage}
 	{doFullSync}

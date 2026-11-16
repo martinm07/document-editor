@@ -1,0 +1,30 @@
+[
+	{
+		"name": "h2",
+		"type": "element",
+		"content": "<!----> <h2 style=\"display:block;font-size:3em;color:var(--color-rock-700);font-family:Merriweather\" data-component=\"h2-[1]\">[HEADING HERE]</h2>",
+		"parts": ["1"],
+		"description": "Heading 2",
+		"tags": ["structure", "heading"]
+	},
+	{
+		"name": "footnote-marker",
+		"type": "element",
+		"content": "<!----> <span style=\"display:inline-block;transform:translateY(-0.5rem)\" data-component=\"footnote-marker-[1]\"><a style=\"font-size:0.8em;color:lch(from blue calc(l + 20) c h)\" href=\"#fn1\" draggable=\"true\" id=\"fn1-marker\" data-component=\"footnote-marker-[1,1]\">[1]</a></span>",
+		"parts": ["1", "1,1"],
+		"description": ""
+	},
+	{
+		"name": "footnote",
+		"type": "element",
+		"content": "<!----> <div id=\"fn-1\" style=\"display:flex;gap:0.75rem\" data-component=\"footnote-[1]\"><div style=\"font-size:1.4rem;display:flex;align-items:center\" data-component=\"footnote-[1,1]\"><a href=\"#fn1-marker\" data-style-hover=\"color:var(--color-rock-600)!important\" style=\"height:fit-content;color:var(--color-rock-800)\" data-component=\"footnote-[1,1,1]\"><ion-icon role=\"img\" class=\"md hydrated\" draggable=\"true\" name=\"return-up-back-outline\" data-component=\"footnote-[1,1,1,1]\"></ion-icon></a></div><div data-component=\"footnote-[1,2]\">Footnote content here</div></div>",
+		"parts": ["1", "1,1", "1,1,1", "1,1,1,1", "1,2"],
+		"description": ""
+	},
+	{
+		"name": "ionicon-scripts",
+		"type": "svelte",
+		"content": "<script>\n  import { onDestroy } from \"svelte\";\n  \n  const ioniconScript1 = document.createElement(\"script\");\n  ioniconScript1.type = \"module\";\n  ioniconScript1.src = \"https://unpkg.com/ionicons@8.0.13/dist/ionicons/ionicons.esm.js\";\n\n  const ioniconScript2 = document.createElement(\"script\");\n  ioniconScript2.noModule = true;\n  ioniconScript2.src = \"https://unpkg.com/ionicons@8.0.13/dist/ionicons/ionicons.js\";\n\n  document.head.appendChild(ioniconScript1);\n  document.head.appendChild(ioniconScript2);\n  \n  onDestroy(() => {\n    document.head.removeChild(ioniconScript1);\n    document.head.removeChild(ioniconScript2);\n  })\n</script>\n",
+		"description": "Add this component to the end of a HTML document to enable the use of ionicons (https://ionic.io/ionicons)"
+	}
+]
