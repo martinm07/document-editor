@@ -23,13 +23,59 @@
 	>
 		Introducing a Light, Visual HTML Editor
 	</h1>
+	<div
+		data-sveltecomp-source=""
+		data-sveltecomp-compname="reset-tutorial-btn"
+		style="display:block;--markertext: &#x22;Mounted reset-tutorial-btn&#x22;"
+		data-sveltecomp-sourcehidden=""
+	>
+		<pre data-sveltecomp-code="">
+&#x3C;script&#x3E;
+  function onClick() {
+    localStorage.removeItem(&#x22;DOC-1&#x22;);
+    location.reload();
+  }
+&#x3C;/script&#x3E;
+&#x3C;div&#x3E;
+  &#x3C;p&#x3E;If this tutorial document&#x27;s content has been updated since you first loaded it, you will only see it by clicking the below button.&#x3C;/p&#x3E;
+  &#x3C;button onclick={onClick}&#x3E;Update the tutorial (resets any changes!)&#x3C;/button&#x3E;
+&#x3C;/div&#x3E;
+
+&#x3C;style&#x3E;
+  div {
+    margin: 0.25rem;
+    padding: 0.25rem;
+    border-top: 2px solid var(--color-rock-200);
+    border-bottom: 2px solid var(--color-rock-200);
+  }
+
+  button {
+    border: 1px solid var(--color-rock-300);
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    color: var(--color-rock-800);
+  }
+
+  button:hover {
+    background: var(--color-rock-100);
+  }
+
+  button:hover:active {
+    transform: translateY(0.2rem);
+  }
+&#x3C;/style&#x3E;
+</pre>
+	</div>
+
 	<h2
 		data-dummycompstyle="display:block;font-size:3em;color:var(--color-rock-700);font-family:Merriweather"
 		data-component="h2-[1]"
-		data-complibver="4590411d"
+		data-complibver="base"
+		style="margin-top: 1em"
 	>
 		How to use (Level 1: HTML)
 	</h2>
+
 	<div
 		style="
 			display: block;
@@ -44,10 +90,12 @@
 		The editor <strong>requires</strong> a mouse/trackpad and keyboard to use, and has been designed
 		purely for desktop and laptop screens.
 	</div>
+
 	<p style="display: block; margin-block: 1rem">
 		There are some things you should understand about the technologies this editor interacts with
 		before continuing:
 	</p>
+
 	<ol
 		style="
 			list-style: none;
@@ -68,6 +116,7 @@
 			HTML stands for HyperText Markup Language. It is the language your browser reads to understand
 			the structure of all content on the World Wide Web.&#xA0;
 		</li>
+
 		<li
 			style="
 				margin-block-end: 0.5rem;
@@ -79,6 +128,7 @@
 			A HTML document consists of text content and &#x27;elements&#x27;. Any text you see on a web
 			page is text content, and it must be contained inside an element, which itself consists
 			of:&#xA0;<br />
+
 			<ol>
 				<li
 					style="
@@ -93,16 +143,14 @@
 					<span
 						data-dummycompstyle="display:inline-block;transform:translateY(-0.5rem)"
 						data-component="footnote-marker-[1]"
-						data-complibver="4590411d"
+						data-complibver="base"
 						><a
 							data-dummycompstyle="font-size:0.8em;color:lch(from blue calc(l + 20) c h)"
-							data-override-href="#fn1"
-							draggable="true"
-							data-override-id="fn1-marker"
-							data-component="footnote-marker-[1,1]"
-							data-complibver="4590411d"
 							href="#fn1"
+							draggable="true"
 							id="fn1-marker"
+							data-component="footnote-marker-[1,1]"
+							data-complibver="base"
 							>[1]</a
 						></span
 					>&#x27; describing what the element is, or what kind of content it will contain.&#xA0;<em
@@ -111,6 +159,7 @@
 						image.</em
 					>
 				</li>
+
 				<li
 					style="
 						margin-block-end: 0.5rem;
@@ -129,6 +178,7 @@
 						element.</em
 					>
 				</li>
+
 				<li
 					style="
 						margin-block-end: 0.5rem;
@@ -148,6 +198,7 @@
 			</ol>
 		</li>
 	</ol>
+
 	<div style="margin-block-end: 0.5rem; display: block">
 		If you want to learn more about the different HTML tag names and attributes, this document is a
 		good place to start! In the editor sidebar, any piece of HTML or CSS (discussed below)
@@ -159,9 +210,9 @@
 		>&#xA0;icon next to it. Clicking that will go to a web page explaining it in more detail, giving
 		example use-cases and so on.<br /><br />This editor allows you to modify all HTML text content
 		and elements (from their tag name, to their attributes, to the relationships between
-		elements).<br />To do so, you must first
-		<strong>select the element you want to modify.</strong>
+		elements).<br />To do so, you must first <strong>select the element you want to modify.</strong>
 	</div>
+
 	<h3
 		style="
 			display: block;
@@ -173,6 +224,7 @@
 	>
 		Selecting Elements
 	</h3>
+
 	<p title="This is some text!">
 		When using your mouse to hover your cursor over the contents of this very document you&#x27;re
 		reading, you should notice a grey outline appear around whatever you hover. You will also notice
@@ -181,12 +233,14 @@
 		&#x27;p&#x27; (displayed as <code>&#x3C;p&#x3E;</code>), and a &#x27;<code>title</code>&#x27;
 		attribute with the value &#x22;This is some text!&#x22;.
 	</p>
+
 	<p>
 		When hovering over an element, you can also choose to hover over one of its parents instead, by
-		pressing <code>Shift</code> while <em>scrolling up</em>, or while pressing the
-		<code>Up Arrow</code> key. Scroll down or press the Down Arrow key to go back to hovering a
-		child.
+		pressing
+		<code>Shift</code> while <em>scrolling up</em>, or while pressing the <code>Up Arrow</code>
+		key. Scroll down or press the Down Arrow key to go back to hovering a child.
 	</p>
+
 	<p>
 		Now that you&#x27;re hovering over the element you want to modify, you want to select it! To do
 		so, you simply press &#x27;<code>S</code>&#x27;. You should notice a smaller, darker outline
@@ -196,6 +250,7 @@
 		boxes and buttons, to modify the tag name, attributes and styles (explained later) of the
 		element.
 	</p>
+
 	<div
 		style="
 			margin-block-end: 0.5rem;
@@ -209,21 +264,23 @@
 		&#x27;&#x3C;div&#x3E;&#x27; in the left sidebar and replace it to say &#x27;&#x3C;p&#x3E;&#x27;,
 		and finally press Enter to confirm the change :)
 	</div>
+
 	<p>
 		You can also select multiple elements at a time. While having an element selected, just hover
 		over another element and select it by pressing &#x27;<code>S</code>&#x27; again. The sidebar
 		will only ever display information common to all the elements you have selected. Any
 		modifications you make through the sidebar will also be propagated to all selected elements.
 	</p>
+
 	<p>
 		To de-select an element, again just press &#x27;<code>S</code>&#x27; while hovering over it. Or,
-		press
-		<code>Escape</code>.&#xA0;<em
+		press <code>Escape</code>.&#xA0;<em
 			><br />Pressing <code>Escape</code> generally gets you out of whatever you&#x27;re doing; if
 			you press Escape enough times you should always get back to the default state; with the
 			default sidebar and nothing selected.&#xA0;</em
 		>
 	</p>
+
 	<h3
 		style="
 			display: block;
@@ -235,10 +292,13 @@
 	>
 		Adding Elements
 	</h3>
+
 	<p>
 		<em>NOTE: This is currently a bit clumsy and subject to change.</em>
 	</p>
+
 	<p>There are a couple of different ways of creating new elements using the editor.</p>
+
 	<ol>
 		<li
 			style="
@@ -268,6 +328,7 @@
 			>
 				Observe! The three potential locations that are created between this element...
 			</div>
+
 			<div
 				style="
 					display: block;
@@ -282,6 +343,7 @@
 				Ctrl+Z.
 			</div>
 		</li>
+
 		<li
 			style="
 				margin-block-end: 0.5rem;
@@ -295,23 +357,25 @@
 				>highlight some text<!----><span
 					data-dummycompstyle="display:inline-block;transform:translateY(-0.5rem)"
 					data-component="footnote-marker-[1]"
-					data-complibver="4590411d"
+					data-complibver="base"
 					><a
 						data-dummycompstyle="font-size:0.8em;color:lch(from blue calc(l + 20) c h)"
 						data-override-href="#fn1"
 						draggable="true"
 						data-override-id="fn1-marker"
 						data-component="footnote-marker-[1,1]"
-						data-complibver="4590411d"
 						href="#fn2"
 						id="fn2-marker"
+						data-complibver="base"
 						>[2]</a
 					></span
 				>&#xA0;in the document and press &#x27;A&#x27;.</strong
 			>
 			This will wrap that text in a new element, and automatically select that newly created
 			element. This is useful for adding extra styles to portions of text, for example adding
-			<em>emphasis</em> to certain words or <strong>emboldening</strong> others, or
+			<em>emphasis</em>
+			to certain words or
+			<strong>emboldening</strong> others, or
 			<span
 				style="
 					background-clip: text;
@@ -334,6 +398,7 @@
 				>whatever you want</span
 			>.
 		</li>
+
 		<li
 			style="
 				margin-block-end: 0.5rem;
@@ -349,6 +414,7 @@
 			they all share the same parent, and are all &#x27;next&#x27; to each other).
 		</li>
 	</ol>
+
 	<h3
 		style="
 			display: block;
@@ -360,6 +426,7 @@
 	>
 		Moving Elements
 	</h3>
+
 	<p>
 		Currently, there is one way of moving existing elements, and that is simply selecting the
 		element you wish to move, and then clicking and dragging it (in the same way you&#x27;d normally
@@ -368,11 +435,13 @@
 		blue before the drag ended (if nothing was highlighted blue then nothing happens and the
 		elements stays in its original location).
 	</p>
+
 	<p style="margin-block-end: 0.5rem; display: block; font-style: italic">
 		You can select multiple elements and move them all at once as well. Though note that, like with
 		wrapping elements in new elements, this only works when the elements you&#x27;ve selected are
 		direct siblings of each other (I call this forming a single &#x27;island&#x27; of elements).
 	</p>
+
 	<h3
 		style="
 			display: block;
@@ -384,17 +453,19 @@
 	>
 		Removing Elements
 	</h3>
+
 	<p>
 		To delete elements, press the &#x27;<code>Del</code>&#x27; key, either when selecting elements
 		or hovering over them.
 	</p>
+
 	<p>
-		If you want to delete an element
-		<em>without deleting its children</em>, press &#x27;<code>U</code>&#x27; instead. This key is
-		meant to stand for &#x27;unwrap&#x27;, as that&#x27;s really what you&#x27;re doing; unwrapping
-		the children.
+		If you want to delete an element <em>without deleting its children</em>, press
+		&#x27;<code>U</code>&#x27; instead. This key is meant to stand for &#x27;unwrap&#x27;, as
+		that&#x27;s really what you&#x27;re doing; unwrapping the children.
 	</p>
 	<!---->
+
 	<h3
 		style="
 			display: block;
@@ -406,12 +477,14 @@
 	>
 		Editing Text Content
 	</h3>
+
 	<p>
 		To edit text, simply hover over the text you want to modify (or the element you want to add text
 		content to) and press &#x27;T&#x27;.<br />You should then find yourself able to modify, add and
 		remove text in that element freely.&#xA0;<br />When you&#x27;re done, click somewhere (that
 		isn&#x27;t the element), or press &#x27;Escape&#x27;.
 	</p>
+
 	<p>
 		<strong>One tip:</strong> You can press &#x27;<code>Enter</code>&#x27; to create new lines of
 		text like you would expect, however, it is often better to press
@@ -423,67 +496,75 @@
 			this explanation is already convoluted enough</em
 		>).
 	</p>
+
 	<h2
 		data-dummycompstyle="display:block;font-size:3em;color:var(--color-rock-700);font-family:Merriweather"
 		data-component="h2-[1]"
-		data-complibver="4590411d"
+		data-complibver="base"
 		style="margin-block-start: 1.5em"
 	>
 		Level 2: CSS
 	</h2>
+
 	<p>[TBC]</p>
 	<!---->
+
 	<h2
 		data-dummycompstyle="display:block;font-size:3em;color:var(--color-rock-700);font-family:Merriweather"
 		data-component="h2-[1]"
-		data-complibver="4590411d"
+		data-complibver="base"
 		style="margin-block-start: 1.5em"
 	>
 		Level 3: Components
 	</h2>
+
 	<p>[TBC]</p>
 	<!---->
+
 	<h2
 		data-dummycompstyle="display:block;font-size:3em;color:var(--color-rock-700);font-family:Merriweather"
 		data-component="h2-[1]"
-		data-complibver="4590411d"
+		data-complibver="base"
 		style="margin-block-start: 1.5em"
 	>
 		Level 4: Svelte-type Components
 	</h2>
+
 	<p>[TBC]</p>
+
 	<div style="display: block; border-top: 2px solid #999; margin-top: 2em; padding-top: 2em">
 		<!---->
+
 		<div
 			data-override-id="fn-1"
 			data-dummycompstyle="display:flex;gap:0.75rem"
 			data-component="footnote-[1]"
-			data-complibver="4590411d"
 			id="fn1"
+			data-complibver="base"
 		>
 			<div
 				data-dummycompstyle="font-size:1.4rem;display:flex;align-items:center"
 				data-component="footnote-[1,1]"
-				data-complibver="4590411d"
+				data-complibver="base"
 			>
 				<a
-					data-override-href="#fn1-marker"
+					href="#fn1-marker"
 					data-dummycompstyle-hover="color:var(--color-rock-600)!important"
 					data-dummycompstyle="height:fit-content;color:var(--color-rock-800)"
 					data-component="footnote-[1,1,1]"
-					data-complibver="4590411d"
-					href="#fn1-marker"
+					data-complibver="base"
 					><ion-icon
 						role="img"
 						class="md hydrated"
 						draggable="true"
 						name="return-up-back-outline"
 						data-component="footnote-[1,1,1,1]"
-						data-complibver="4590411d"
+						data-complibver="base"
 					></ion-icon
 				></a>
 			</div>
-			<div data-component="footnote-[1,2]" data-complibver="4590411d">
+
+			<div data-component="footnote-[1,2]" data-complibver="base">
 				[1]&#xA0;Why is it called a &#x27;tag name&#x27;? Because elements are also often referred
 				to as &#x27;tags&#x27;. They may also be referred to as &#x27;nodes&#x27; (a broader term
 				which also includes text content &#x27;nodes&#x27;).
@@ -491,42 +572,45 @@
 		</div>
 		<!---->
 		<!---->
+
 		<div
 			data-override-id="fn-1"
 			data-dummycompstyle="display:flex;gap:0.75rem"
 			data-component="footnote-[1]"
-			data-complibver="4590411d"
 			id="fn2"
+			data-complibver="base"
 		>
 			<div
 				data-dummycompstyle="font-size:1.4rem;display:flex;align-items:center"
 				data-component="footnote-[1,1]"
-				data-complibver="4590411d"
+				data-complibver="base"
 			>
 				<a
 					data-override-href="#fn1-marker"
 					data-dummycompstyle-hover="color:var(--color-rock-600)!important"
 					data-dummycompstyle="height:fit-content;color:var(--color-rock-800)"
 					data-component="footnote-[1,1,1]"
-					data-complibver="4590411d"
 					href="#fn2-marker"
+					data-complibver="base"
 					><ion-icon
 						role="img"
 						class="md hydrated"
 						draggable="true"
 						name="return-up-back-outline"
 						data-component="footnote-[1,1,1,1]"
-						data-complibver="4590411d"
+						data-complibver="base"
 					></ion-icon
 				></a>
 			</div>
-			<div data-component="footnote-[1,2]" data-complibver="4590411d">
+
+			<div data-component="footnote-[1,2]" data-complibver="base">
 				[2] By highlighting text, I mean using your mouse to hover over some text, holding down left
 				click and dragging (moving your mouse) until you let go of left click. The text between your
 				start and end location will be highlighted (and should visually appear as such).
 			</div>
 		</div>
 	</div>
+
 	<div
 		data-sveltecomp-source=""
 		data-sveltecomp-compname="ionicon-scripts"

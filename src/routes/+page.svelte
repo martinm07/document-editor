@@ -157,7 +157,7 @@
 				id,
 				body: id === '1' ? tutorialBody : '',
 				stylesheet: id === '1' ? tutorialStyles : '',
-				compLibVer: getLatestCompLibVersion(),
+				compLibVer: id === '1' ? 'base' : getLatestCompLibVersion(),
 				title: id === '1' ? 'Editor Tutorial' : 'Empty Document',
 				description: '',
 				tags: [],
@@ -245,23 +245,14 @@
 	};
 
 	const getCompLib: DocumentEditorProps['getCompLib'] = (version) => {
-		if (!version)
+		if (!version || version === 'base')
 			return {
-				version: '',
+				version,
 				previousVersion: null,
-				components: [],
+				components: version === 'base' ? (tutorialCompLib as Component[]) : [],
 				nameChanges: [],
 				message: ''
 			};
-		else if (version === 'tutorialbase') {
-			return {
-				version: 'tutorialbase',
-				previousVersion: null,
-				components: tutorialCompLib as Component[],
-				nameChanges: [],
-				message: ''
-			};
-		}
 
 		const parsed: CompLibInfo | null = JSON.parse(
 			localStorage.getItem(`COMPLIB-VER-${version}`) ?? 'null'

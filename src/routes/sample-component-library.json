@@ -26,5 +26,11 @@
 		"type": "svelte",
 		"content": "<script>\n  import { onDestroy } from \"svelte\";\n  \n  const ioniconScript1 = document.createElement(\"script\");\n  ioniconScript1.type = \"module\";\n  ioniconScript1.src = \"https://unpkg.com/ionicons@8.0.13/dist/ionicons/ionicons.esm.js\";\n\n  const ioniconScript2 = document.createElement(\"script\");\n  ioniconScript2.noModule = true;\n  ioniconScript2.src = \"https://unpkg.com/ionicons@8.0.13/dist/ionicons/ionicons.js\";\n\n  document.head.appendChild(ioniconScript1);\n  document.head.appendChild(ioniconScript2);\n  \n  onDestroy(() => {\n    document.head.removeChild(ioniconScript1);\n    document.head.removeChild(ioniconScript2);\n  })\n</script>\n",
 		"description": "Add this component to the end of a HTML document to enable the use of ionicons (https://ionic.io/ionicons)"
+	},
+	{
+		"name": "reset-tutorial-btn",
+		"type": "svelte",
+		"content": "<script>\n  function onClick() {\n    localStorage.removeItem(\"DOC-1\");\n    location.reload();\n  }\n</script>\n<div>\n  <p>If this tutorial document's content has been updated since you first loaded it, you will only see it by clicking the below button.</p>\n  <button onclick={onClick}>Update the tutorial (resets any changes!)</button>\n</div>\n\n<style>\n  div {\n    margin: 0.25rem;\n    padding: 0.25rem;\n    border-top: 2px solid var(--color-rock-200);\n    border-bottom: 2px solid var(--color-rock-200);\n  }\n  \n  button {\n    border: 1px solid var(--color-rock-300);\n    padding: 0.25rem 0.5rem;\n    border-radius: 0.25rem;\n    color: var(--color-rock-800);\n  }\n\n  button:hover {\n    background: var(--color-rock-100);\n  }\n\n  button:hover:active {\n    transform: translateY(0.2rem);\n  }\n</style>\n",
+		"description": ""
 	}
 ]
