@@ -42,7 +42,7 @@
 
 	function parseTagStr(str: string) {
 		const strLower = str.toLowerCase();
-		const strFiltered = strLower.match(/[a-z1-6]/g)?.join('') ?? '';
+		const strFiltered = strLower.match(/[a-z0-9\-]/g)?.join('') ?? '';
 
 		tagNameURL = getTagURL(strFiltered);
 		// if (tagNameURL && tagName !== strFiltered) {
@@ -195,8 +195,7 @@
 </a>
 <div class="mt-3">
 	<button
-		class="-ml-5 cursor-pointer rounded px-2 py-1 text-lg text-rock-600 underline ring-4 ring-rock-600/10 hover:no-underline [.disabled]:cursor-default [.disabled]:no-underline [.disabled]:opacity-50"
-		class:disabled={!tagNameURL}
+		class="-ml-5 cursor-pointer rounded px-2 py-1 text-lg text-rock-600 underline ring-4 ring-rock-600/10 hover:no-underline"
 		class:hidden={!inputValDifferent}
 		onclick={changeTagNames}>Confirm change</button
 	>

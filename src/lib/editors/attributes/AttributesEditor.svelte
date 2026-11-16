@@ -402,7 +402,7 @@
 						else dataComponent.send('novalid');
 						return;
 					}
-					if (attr.valid && !attributeMasked(target, attr.name)) {
+					if (!attributeMasked(target, attr.name)) {
 						//
 						const targetDataComponent = target.getAttribute('data-component');
 						let numInherited: number | undefined;
@@ -414,7 +414,11 @@
 							if (attrI !== -1 && attrI < numInherited) target.removeAttribute(attr.name);
 						}
 
-						target.setAttribute(attr.name, attr.value);
+						try {
+							target.setAttribute(attr.name, attr.value);
+						} catch {
+							console.warn(`Failed setting attribute "${attr.name}" to the DOM; invalid.`);
+						}
 					}
 				});
 			}
