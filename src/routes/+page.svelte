@@ -233,15 +233,7 @@
 
 	const getLatestCompLibVersion: DocumentEditorProps['getLatestCompLibVersion'] = () => {
 		const stored = localStorage.getItem('COMPLIB-LATESTVER');
-		if (stored !== null) return stored;
-
-		if (
-			stateIsEditorState(page.state) &&
-			page.state.resourceName === '1' &&
-			page.state.mode === 'document'
-		) {
-			return 'tutorialbase';
-		} else return null;
+		return stored ?? 'base';
 	};
 
 	const getCompLib: DocumentEditorProps['getCompLib'] = (version) => {
